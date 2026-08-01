@@ -25,32 +25,14 @@ type CalibrationPhase = "preparing" | "measuring" | "ready" | "failed";
 const CALIBRATION_PREPARATION_MS = 2000;
 const CALIBRATION_MEASUREMENT_MS = 1500;
 const AUTO_HIDE_GRACE_MS = 2000;
-const CONFETTI_PIECES = [
-  { left: "6%", delay: "0ms", drift: "-24px", rotate: "-12deg", color: "#ef765f" },
-  { left: "13%", delay: "180ms", drift: "18px", rotate: "24deg", color: "#6654d9" },
-  { left: "21%", delay: "420ms", drift: "-12px", rotate: "-8deg", color: "#58a37c" },
-  { left: "29%", delay: "80ms", drift: "28px", rotate: "18deg", color: "#f3b34f" },
-  { left: "37%", delay: "520ms", drift: "-18px", rotate: "-22deg", color: "#ef765f" },
-  { left: "45%", delay: "240ms", drift: "16px", rotate: "12deg", color: "#6654d9" },
-  { left: "53%", delay: "640ms", drift: "-26px", rotate: "-16deg", color: "#58a37c" },
-  { left: "61%", delay: "140ms", drift: "22px", rotate: "20deg", color: "#f3b34f" },
-  { left: "69%", delay: "360ms", drift: "-14px", rotate: "-6deg", color: "#ef765f" },
-  { left: "77%", delay: "700ms", drift: "20px", rotate: "28deg", color: "#6654d9" },
-  { left: "85%", delay: "300ms", drift: "-22px", rotate: "-18deg", color: "#58a37c" },
-  { left: "93%", delay: "560ms", drift: "12px", rotate: "10deg", color: "#f3b34f" },
-  { left: "9%", delay: "860ms", drift: "30px", rotate: "-26deg", color: "#6654d9" },
-  { left: "17%", delay: "1040ms", drift: "-20px", rotate: "16deg", color: "#ef765f" },
-  { left: "25%", delay: "760ms", drift: "14px", rotate: "-10deg", color: "#f3b34f" },
-  { left: "33%", delay: "920ms", drift: "-28px", rotate: "22deg", color: "#58a37c" },
-  { left: "41%", delay: "1180ms", drift: "24px", rotate: "-18deg", color: "#ef765f" },
-  { left: "49%", delay: "820ms", drift: "-16px", rotate: "8deg", color: "#6654d9" },
-  { left: "57%", delay: "980ms", drift: "26px", rotate: "-24deg", color: "#f3b34f" },
-  { left: "65%", delay: "1120ms", drift: "-20px", rotate: "14deg", color: "#58a37c" },
-  { left: "73%", delay: "780ms", drift: "18px", rotate: "-8deg", color: "#ef765f" },
-  { left: "81%", delay: "1060ms", drift: "-26px", rotate: "26deg", color: "#6654d9" },
-  { left: "89%", delay: "900ms", drift: "16px", rotate: "-14deg", color: "#58a37c" },
-  { left: "97%", delay: "1200ms", drift: "-12px", rotate: "18deg", color: "#f3b34f" },
-] as const;
+const CONFETTI_COLORS = ["#ef765f", "#6654d9", "#58a37c", "#f3b34f"] as const;
+const CONFETTI_PIECES = Array.from({ length: 56 }, (_, index) => ({
+  left: `${5 + ((index * 19) % 90)}%`,
+  delay: `${(index % 16) * 240 + Math.floor(index / 16) * 180}ms`,
+  drift: `${((index * 31) % 70) - 35}px`,
+  rotate: `${((index * 47) % 60) - 30}deg`,
+  color: CONFETTI_COLORS[index % CONFETTI_COLORS.length],
+}));
 
 const INITIAL_LEVEL: PrimaryLevel = "CP";
 const INITIAL_DICTATION = getDictation(INITIAL_LEVEL, 0);
@@ -328,7 +310,7 @@ export function DictaApp() {
 
   const finishSession = () => {
     const elapsedMs = sessionStartedAtRef.current === null ? 1000 : Date.now() - sessionStartedAtRef.current;
-    const score = calculateScore(text, elapsedMs);
+    const score = calculateScore(text, elapsedMs, totalReviews);
     const entry: LeaderboardEntry = {
       id: `${Date.now()}-${score}-${leaderboard.length}`,
       score,
@@ -510,26 +492,26 @@ export function DictaApp() {
       )}
 
       {screen === "summary" && (
-        <section className="session-shell">
+        <section className="session-shell summary-shell">
+          {totalReviews < 3 && (
+            <div className="confetti-field" aria-hidden="true">
+              {CONFETTI_PIECES.map((piece, index) => (
+                <span
+                  key={`${piece.left}-${index}`}
+                  className="confetti-piece"
+                  style={{
+                    "--confetti-left": piece.left,
+                    "--confetti-delay": piece.delay,
+                    "--confetti-drift": piece.drift,
+                    "--confetti-rotate": piece.rotate,
+                    "--confetti-color": piece.color,
+                  } as CSSProperties}
+                />
+              ))}
+            </div>
+          )}
           <div className="hero"><div className="eyebrow">Dictée terminée</div><h1>Bravo, c’est terminé !</h1><p>Chaque relecture aide à mieux connaître sa mémoire.</p></div>
           <div className="card stage-card summary-card">
-            {totalReviews < 3 && (
-              <div className="confetti-field" aria-hidden="true">
-                {CONFETTI_PIECES.map((piece, index) => (
-                  <span
-                    key={`${piece.left}-${index}`}
-                    className="confetti-piece"
-                    style={{
-                      "--confetti-left": piece.left,
-                      "--confetti-delay": piece.delay,
-                      "--confetti-drift": piece.drift,
-                      "--confetti-rotate": piece.rotate,
-                      "--confetti-color": piece.color,
-                    } as CSSProperties}
-                  />
-                ))}
-              </div>
-            )}
             <div className={`summary-score ${isNewBestScore ? "summary-score-record" : ""}`}>{summaryScore ?? 0}</div>
             <div className="muted">{isNewBestScore ? "Nouveau record !" : "score"}</div>
             <div className="leaderboard" aria-label="Classement des meilleurs scores">

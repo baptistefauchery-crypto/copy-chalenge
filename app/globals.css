@@ -117,6 +117,8 @@ button { touch-action: manipulation; }
 .privacy-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; background: #58a37c; margin-top: 5px; box-shadow: 0 0 0 5px rgba(88,163,124,.12); }
 
 .session-shell { flex: 1; display: flex; flex-direction: column; padding-top: 12px; }
+.summary-shell { position: relative; isolation: isolate; overflow: hidden; min-height: calc(100svh - 82px); margin-inline: -18px; padding: 12px 18px 22px; }
+.summary-shell > :not(.confetti-field) { position: relative; z-index: 1; }
 .calibration-shell { justify-content: center; padding-top: 0; }
 .progress-wrap { padding: 18px 2px 28px; }
 .progress-label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 750; margin-bottom: 9px; }
@@ -146,13 +148,12 @@ button { touch-action: manipulation; }
 .choice-button.next { background: var(--violet); color: white; }
 .manual-hide { margin-top: 28px; border: 0; background: transparent; color: var(--muted); text-decoration: underline; text-underline-offset: 4px; padding: 12px; }
 .summary-card { isolation: isolate; }
-.confetti-field { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.confetti-field { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
 .confetti-piece {
   position: absolute; top: -18px; left: var(--confetti-left); width: 9px; height: 14px;
   border-radius: 3px; background: var(--confetti-color); opacity: 0;
-  animation: confetti-fall 4s var(--confetti-delay) ease-out both;
+  animation: confetti-fall 6.5s var(--confetti-delay) ease-out both;
 }
-.summary-card > :not(.confetti-field) { position: relative; z-index: 1; }
 @keyframes summary-score-bounce {
   0% { opacity: 0; transform: scale(.82); }
   48% { opacity: 1; transform: scale(1.1); }
@@ -165,7 +166,7 @@ button { touch-action: manipulation; }
 @keyframes confetti-fall {
   0% { opacity: 0; transform: translate3d(0, -18px, 0) rotate(var(--confetti-rotate)); }
   12% { opacity: 1; }
-  100% { opacity: 0; transform: translate3d(var(--confetti-drift), 520px, 0) rotate(calc(var(--confetti-rotate) + 240deg)); }
+  100% { opacity: 0; transform: translate3d(var(--confetti-drift), calc(100svh + 80px), 0) rotate(calc(var(--confetti-rotate) + 420deg)); }
 }
 @media (prefers-reduced-motion: reduce) {
   .confetti-piece { animation: none; opacity: .9; transform: translateY(80px) rotate(var(--confetti-rotate)); }

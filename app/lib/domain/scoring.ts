@@ -12,12 +12,14 @@ export function countScoringLetters(text: string): number {
   return text.match(/\p{L}/gu)?.length ?? 0;
 }
 
-export function calculateScore(text: string, elapsedMs: number): number {
+export function calculateScore(text: string, elapsedMs: number, reviewCount = 0): number {
   const letters = countScoringLetters(text);
   if (letters === 0) return 0;
 
   const elapsedSeconds = Math.max(elapsedMs / 1000, 1);
-  return Math.max(1, Math.round((SCORE_SCALE * letters) / elapsedSeconds));
+  const lengthMultiplier = 1 + letters * 0.001;
+  const reviewMultiplier = Math.pow(0.85, Math.max(0, reviewCount));
+  return Math.max(1, Math.round((SCORE_SCALE * letters * lengthMultiplier * reviewMultiplier) / elapsedSeconds));
 }
 
 export function sortLeaderboard(entries: readonly LeaderboardEntry[]): LeaderboardEntry[] {

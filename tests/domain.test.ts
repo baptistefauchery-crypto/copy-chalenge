@@ -37,9 +37,11 @@ test("offers three deterministic dictations for every primary class", () => {
   }
 });
 
-test("calculates a high score from elapsed time and letters only", () => {
+test("calculates a high score and applies the requested adjustments", () => {
   assert.equal(calculateScore("Un joli mot", 12000), calculateScore("Douze mots", 12000));
   assert.ok(calculateScore("Le chat dort", 30000) > 35);
+  assert.ok(calculateScore("Une dictée plus longue", 30000) > calculateScore("Un mot", 30000));
+  assert.ok(calculateScore("Le chat dort", 30000, 1) < calculateScore("Le chat dort", 30000));
 });
 
 test("keeps the leaderboard ordered and capped", () => {
@@ -61,6 +63,18 @@ test("splits French text without losing words or punctuation", () => {
   assert.equal(fragments.join(" "), source);
   assert.equal(fragments[0], "Le petit chat dort.");
   assert.ok(fragments.every((fragment, index) => index === fragments.length - 1 || countLetters(fragment) >= 15));
+});
+
+test("never mixes two sentences in one fragment", () => {
+  const fragments = splitTextIntoFragments("Le chat dort. Puis il joue dans le jardin. Le soleil brille.", {
+    targetLetters: 8,
+  });
+
+  assert.deepEqual(fragments, [
+    "Le chat dort.",
+    "Puis il joue dans le jardin.",
+    "Le soleil brille.",
+  ]);
 });
 
 test("runs a session and counts reviews immutably", () => {

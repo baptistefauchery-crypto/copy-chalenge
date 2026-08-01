@@ -70,6 +70,7 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(dictaApp, /calculateScore/);
   assert.match(dictaApp, /LEADERBOARD_STORAGE_KEY/);
   assert.match(scoring, /export function calculateScore/);
-  assert.match(globals, /confetti-fall 4s/);
+  assert.match(globals, /confetti-fall 6\.5s/);
+  assert.match(globals, /summary-shell/);
   assert.match(globals, /summary-score-bounce/);
 });

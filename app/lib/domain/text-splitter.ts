@@ -1,5 +1,5 @@
 export interface TextSplitOptions {
-  /** Desired fragment size in letters. The fragment ends at the next word boundary. */
+  /** Desired fragment size in letters. The fragment ends at the next sentence boundary. */
   targetLetters?: number;
 }
 
@@ -16,6 +16,10 @@ function normalizeOptions(options: TextSplitOptions) {
   return { targetLetters };
 }
 
+function endsSentence(word: string): boolean {
+  return /[.!?](?:[»"')\]]*)$/u.test(word);
+}
+
 /** Counts letters while ignoring spaces, punctuation, and numbers. */
 export function countLetters(text: string): number {
   return Array.from(text.matchAll(/\p{L}/gu)).length;
@@ -30,8 +34,15 @@ function chooseSize(
   let letters = 0;
 
   for (let size = 1; size <= remaining; size += 1) {
-    letters += countLetters(words[offset + size - 1]);
-    if (letters >= targetLetters) return size;
+    const word = words[offset + size - 1];
+    letters += countLetters(word);
+    if (endsSentence(word)) return size;
+    if (letters >= targetLetters) {
+      for (let next = size + 1; next <= remaining; next += 1) {
+        if (endsSentence(words[offset + next - 1])) return next;
+      }
+      return size;
+    }
   }
 
   return remaining;
@@ -39,7 +50,7 @@ function chooseSize(
 
 /**
  * Splits French prose into readable fragments of roughly the requested number
- * of letters. Each fragment is rounded up to the next complete word while
+ * of letters. Each fragment is rounded up to the next complete sentence while
  * preserving punctuation. Whitespace is normalized and an empty input produces [].
  */
 export function splitTextIntoFragments(
