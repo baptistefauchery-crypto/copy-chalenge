@@ -45,6 +45,8 @@ const noticeButtonStyle: CSSProperties = {
 
 const installNoticeStyle: CSSProperties = {
   ...noticeStyle,
+  flexDirection: "column",
+  alignItems: "stretch",
   padding: 0,
   border: 0,
   background: "transparent",
@@ -78,12 +80,15 @@ function isInstalledApp() {
 export function PwaProvider() {
   const [installEvent, setInstallEvent] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(() =>
-    typeof window !== "undefined" && isInstalledApp(),
-  );
+  const [isInstalled, setIsInstalled] = useState<boolean | null>(null);
+  const [installHelp, setInstallHelp] = useState(false);
   const [updateReady, setUpdateReady] = useState(false);
 
   useEffect(() => {
+    const installationCheckTimer = window.setTimeout(
+      () => setIsInstalled(isInstalledApp()),
+      0,
+    );
     let removeServiceWorkerListener: (() => void) | undefined;
     if ("serviceWorker" in navigator) {
       const hadController = Boolean(navigator.serviceWorker.controller);
@@ -124,6 +129,7 @@ export function PwaProvider() {
     const captureInstallPrompt = (event: Event) => {
       event.preventDefault();
       setInstallEvent(event as BeforeInstallPromptEvent);
+      setInstallHelp(false);
     };
     const confirmInstallation = () => {
       setInstallEvent(null);
@@ -133,18 +139,22 @@ export function PwaProvider() {
     window.addEventListener("beforeinstallprompt", captureInstallPrompt);
     window.addEventListener("appinstalled", confirmInstallation);
     return () => {
+      window.clearTimeout(installationCheckTimer);
       removeServiceWorkerListener?.();
       window.removeEventListener("beforeinstallprompt", captureInstallPrompt);
       window.removeEventListener("appinstalled", confirmInstallation);
     };
   }, []);
 
-  const showInstallButton = Boolean(installEvent) && !isInstalled;
+  const showInstallButton = isInstalled === false;
 
   if (!showInstallButton && !updateReady) return null;
 
   const requestInstallation = async () => {
-    if (!installEvent) return;
+    if (!installEvent) {
+      setInstallHelp(true);
+      return;
+    }
     await installEvent.prompt();
     const { outcome } = await installEvent.userChoice;
     if (outcome === "accepted") setInstallEvent(null);
@@ -167,6 +177,21 @@ export function PwaProvider() {
           >
             Installer Dicta sur ce téléphone
           </button>
+          {installHelp && (
+            <span
+              role="status"
+              style={{
+                padding: "0.7rem 0.85rem 0.85rem",
+                color: "#716d7e",
+                fontSize: "0.82rem",
+                lineHeight: 1.4,
+                textAlign: "center",
+              }}
+            >
+              Dans Chrome Android, ouvre le menu ⋮ puis « Installer l’application »
+              ou « Ajouter à l’écran d’accueil ».
+            </span>
+          )}
         </aside>
       )}
       {updateReady && (
