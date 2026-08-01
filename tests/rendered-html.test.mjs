@@ -32,6 +32,7 @@ test("server-renders the Dicta setup experience", async () => {
 test("ships the Android PWA and local vision assets", async () => {
   const manifest = JSON.parse(await readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"));
   assert.equal(manifest.short_name, "Dicta");
+  assert.equal(manifest.id, "/");
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.orientation, "portrait-primary");
 
@@ -44,5 +45,6 @@ test("ships the Android PWA and local vision assets", async () => {
   ]);
 
   const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /CACHE_VERSION = "dicta-v3"/);
+  assert.match(serviceWorker, /CACHE_VERSION = "dicta-v4"/);
+  assert.match(serviceWorker, /icon-maskable-512\.png/);
 });

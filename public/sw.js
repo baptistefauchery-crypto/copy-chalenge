@@ -1,8 +1,14 @@
 /* Dicta service worker — bump this value whenever the offline shell changes. */
-const CACHE_VERSION = "dicta-v3";
+const CACHE_VERSION = "dicta-v4";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
-const APP_SHELL = ["/", "/manifest.webmanifest"];
+const APP_SHELL = [
+  "/",
+  "/manifest.webmanifest",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/icon-maskable-512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

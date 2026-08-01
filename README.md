@@ -14,6 +14,19 @@ Prototype Android de dictée visuelle : l’élève mémorise quelques mots, reg
 - bilan local des relectures
 - aucune vidéo enregistrée ou envoyée
 
+## Installer sur Android
+
+Ouvrir l’adresse publiée dans Chrome sur le téléphone, puis utiliser le bouton
+`Installer` proposé par Dicta ou le menu `⋮` de Chrome → `Installer l’application`.
+L’application nécessite une connexion HTTPS pour l’installation et l’accès caméra.
+
+## Mises à jour
+
+Dicta vérifie les nouvelles versions à l’ouverture, lorsque l’application revient
+au premier plan et périodiquement lorsqu’elle reste ouverte. Une notification
+`Mettre à jour` permet de recharger la nouvelle version sans interrompre une
+séance en cours.
+
 ## Développement
 
 ```bash
