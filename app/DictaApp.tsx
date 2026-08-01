@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ChangeEvent } from "react";
 import {
   calculateScore,
   getDictation,
@@ -40,7 +40,6 @@ const CONFETTI_PIECES = Array.from({ length: 56 }, (_, index) => {
 });
 
 const INITIAL_LEVEL: PrimaryLevel = "CP";
-const INITIAL_DICTATION = getDictation(INITIAL_LEVEL, 0);
 const INITIAL_CURSORS: Record<PrimaryLevel, number> = {
   CP: 1,
   CE1: 0,
@@ -49,6 +48,74 @@ const INITIAL_CURSORS: Record<PrimaryLevel, number> = {
   CM2: 0,
 };
 const NEXT_DICTATION_OPTION = "__next_dictation__";
+const DICTATION_PROGRESS_STORAGE_KEY = "copy-challenge-dictation-progress-v1";
+const DICTATION_PROGRESS_EVENT = "copy-challenge-dictation-progress";
+
+interface StoredDictationProgress {
+  level: PrimaryLevel;
+  index: number;
+  cursors: Record<PrimaryLevel, number>;
+  lettersPerFragment: number;
+}
+
+function subscribeToDictationProgress(listener: () => void) {
+  if (typeof window === "undefined") return () => undefined;
+  window.addEventListener("storage", listener);
+  window.addEventListener(DICTATION_PROGRESS_EVENT, listener);
+  return () => {
+    window.removeEventListener("storage", listener);
+    window.removeEventListener(DICTATION_PROGRESS_EVENT, listener);
+  };
+}
+
+function getDictationProgressSnapshot() {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(DICTATION_PROGRESS_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function parseStoredDictationProgress(snapshot: string): StoredDictationProgress | null {
+  if (!snapshot) return null;
+  try {
+    const parsed: unknown = JSON.parse(snapshot);
+    if (!parsed || typeof parsed !== "object") return null;
+    const candidate = parsed as Record<string, unknown>;
+    const level = candidate.level;
+    const index = candidate.index;
+    if (!PRIMARY_LEVELS.some((entry) => entry.id === level) || typeof index !== "number" || !Number.isInteger(index)) return null;
+
+    const cursors = { ...INITIAL_CURSORS };
+    if (candidate.cursors && typeof candidate.cursors === "object") {
+      const storedCursors = candidate.cursors as Record<string, unknown>;
+      for (const entry of PRIMARY_LEVELS) {
+        const value = storedCursors[entry.id];
+        if (typeof value === "number" && Number.isInteger(value) && value >= 0) cursors[entry.id] = value;
+      }
+    }
+
+    const levelDefinition = getLevel(level as PrimaryLevel);
+    const lettersPerFragment = typeof candidate.lettersPerFragment === "number" && Number.isInteger(candidate.lettersPerFragment)
+      ? Math.min(100, Math.max(1, candidate.lettersPerFragment))
+      : levelDefinition.recommendedLetters;
+
+    return { level: level as PrimaryLevel, index, cursors, lettersPerFragment };
+  } catch {
+    return null;
+  }
+}
+
+function persistDictationProgress(progress: StoredDictationProgress) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(DICTATION_PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+    window.dispatchEvent(new Event(DICTATION_PROGRESS_EVENT));
+  } catch {
+    // The current selection remains available for the current session if storage is blocked.
+  }
+}
 
 function readStoredLeaderboard(): LeaderboardEntry[] {
   if (typeof window === "undefined") return [];
@@ -75,11 +142,13 @@ function persistLeaderboard(entries: readonly LeaderboardEntry[]) {
 }
 
 export function DictaApp() {
+  const dictationProgressSnapshot = useSyncExternalStore(subscribeToDictationProgress, getDictationProgressSnapshot, () => "");
+  const storedDictationProgress = parseStoredDictationProgress(dictationProgressSnapshot);
+  const selectedLevel = storedDictationProgress?.level ?? INITIAL_LEVEL;
+  const selectedDictation = getDictation(selectedLevel, storedDictationProgress?.index ?? 0);
+  const text = selectedDictation.text;
+  const lettersPerFragment = storedDictationProgress?.lettersPerFragment ?? getLevel(selectedLevel).recommendedLetters;
   const [screen, setScreen] = useState<Screen>("setup");
-  const [selectedLevel, setSelectedLevel] = useState<PrimaryLevel>(INITIAL_LEVEL);
-  const [selectedDictation, setSelectedDictation] = useState(INITIAL_DICTATION);
-  const [text, setText] = useState(INITIAL_DICTATION.text);
-  const [lettersPerFragment, setLettersPerFragment] = useState(getLevel(INITIAL_LEVEL).recommendedLetters);
   const [cameraMode, setCameraMode] = useState<"camera" | "manual">("camera");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
@@ -105,7 +174,6 @@ export function DictaApp() {
   const autoHideBlockedUntilRef = useRef(0);
   const sessionStartedAtRef = useRef<number | null>(null);
   const calibrationReadConfirmedRef = useRef(false);
-  const dictationCursorsRef = useRef<Record<PrimaryLevel, number>>({ ...INITIAL_CURSORS });
 
   useEffect(() => {
     screenRef.current = screen;
@@ -120,12 +188,15 @@ export function DictaApp() {
   const keepCameraMounted = cameraMode === "camera" && screen !== "setup" && screen !== "summary";
 
   const chooseNextDictation = (level: PrimaryLevel) => {
-    const nextDictation = getDictation(level, dictationCursorsRef.current[level]);
-    dictationCursorsRef.current[level] = (nextDictation.index + 1) % nextDictation.total;
-    setSelectedLevel(level);
-    setSelectedDictation(nextDictation);
-    setText(nextDictation.text);
-    setLettersPerFragment(getLevel(level).recommendedLetters);
+    const cursors = storedDictationProgress?.cursors ?? INITIAL_CURSORS;
+    const nextDictation = getDictation(level, cursors[level]);
+    const nextCursors = { ...cursors, [level]: (nextDictation.index + 1) % nextDictation.total };
+    persistDictationProgress({
+      level,
+      index: nextDictation.index,
+      cursors: nextCursors,
+      lettersPerFragment: getLevel(level).recommendedLetters,
+    });
   };
 
   const selectLevel = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -142,7 +213,13 @@ export function DictaApp() {
 
   const setLetterTarget = (value: number) => {
     if (!Number.isFinite(value)) return;
-    setLettersPerFragment(Math.min(100, Math.max(1, Math.round(value))));
+    const nextLetters = Math.min(100, Math.max(1, Math.round(value)));
+    persistDictationProgress({
+      level: selectedLevel,
+      index: selectedDictation.index,
+      cursors: storedDictationProgress?.cursors ?? INITIAL_CURSORS,
+      lettersPerFragment: nextLetters,
+    });
   };
 
   useEffect(() => {
@@ -299,7 +376,7 @@ export function DictaApp() {
 
   const confirmCalibrationRead = () => {
     calibrationReadConfirmedRef.current = true;
-    if (calibrationPhase === "ready") startCameraSession();
+    if (cameraMode === "manual" || calibrationPhase === "ready") startCameraSession();
   };
 
   const beginManual = () => {
@@ -307,13 +384,9 @@ export function DictaApp() {
     setCameraLoading(false);
     setCameraMode("manual");
     setCameraError(null);
-    setScreen("session");
-    setPhase("memorizing");
-    setFragmentIndex(0);
-    setReviewCounts(Array(fragments.length).fill(0));
     calibrationReadConfirmedRef.current = false;
-    sessionStartedAtRef.current = Date.now();
-    startAutoHideGracePeriod();
+    setCalibrationPhase("ready");
+    setScreen("calibration-screen");
   };
 
   const hideFragment = () => setPhase("decision");
@@ -565,9 +638,8 @@ export function DictaApp() {
                 })
               )}
             </div>
-            <div className="summary-grid">
-              <div className="summary-stat"><strong>{totalReviews}</strong><span>relectures</span></div>
-              <div className="summary-stat"><strong>{reviewCounts.filter(Boolean).length}</strong><span>fragments revus</span></div>
+            <div className="summary-grid summary-grid-single">
+              <div className="summary-stat"><strong>{totalReviews}</strong><span>relecture</span></div>
             </div>
             <button className="primary-button" onClick={prepareNextDictation}>Préparer la dictée suivante</button>
           </div>
