@@ -15,7 +15,6 @@ type CalibrationPhase = "preparing" | "measuring" | "ready";
 const DEMO_TEXT = "Le petit renard traverse le jardin. Il s’arrête près des fleurs, puis écoute le vent dans les arbres.";
 const CALIBRATION_PREPARATION_MS = { screen: 2000, notebook: 5000 } as const;
 const CALIBRATION_MEASUREMENT_MS = 3000;
-const MIN_CALIBRATION_QUALITY = 0.85;
 
 export function DictaApp() {
   const [screen, setScreen] = useState<Screen>("setup");
@@ -149,9 +148,9 @@ export function DictaApp() {
     }
     if (target === "notebook") {
       const calibration = detectorRef.current?.getCalibration();
-      if (!calibration || calibration.quality < MIN_CALIBRATION_QUALITY) {
+      if (!calibration) {
         setCalibrationPhase("preparing");
-        setToast("Les deux regards sont trop proches. Recommençons.");
+        setToast("La mesure n’a pas pu être enregistrée. Recommençons.");
         setScreen("placement");
         return false;
       }

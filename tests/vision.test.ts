@@ -38,4 +38,6 @@ test("does not claim that almost identical poses are separated", () => {
   );
 
   assert.ok(calibration.quality < 0.85);
+  assert.equal(classifyFeatures(calibration.screen.mean, calibration).state, "screen");
+  assert.ok(classifyFeatures(calibration.screen.mean, calibration).confidence >= 0.45);
 });

@@ -65,8 +65,11 @@ export function classifyFeatures(
   const notebookDistance = distanceTo(sample, calibration.notebook, calibration.screen);
   const total = Math.max(screenDistance + notebookDistance, 1e-5);
   const margin = Math.abs(screenDistance - notebookDistance) / total;
+  // A close calibration should lower confidence, not block the whole session.
+  // Temporal hysteresis still prevents a single ambiguous frame from switching state.
+  const qualityFactor = Math.min(1, Math.max(0.45, calibration.quality / 2));
   return {
     state: screenDistance <= notebookDistance ? "screen" : "notebook",
-    confidence: Math.min(1, margin * Math.min(1, calibration.quality / 2)),
+    confidence: Math.min(1, margin * qualityFactor),
   };
 }
