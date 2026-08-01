@@ -8,7 +8,7 @@ import {
   type AttentionState,
 } from "./lib/vision";
 
-type Screen = "setup" | "placement" | "calibration-screen" | "dictation-ready" | "session" | "summary";
+type Screen = "setup" | "placement" | "calibration-screen" | "session" | "summary";
 type SessionPhase = "memorizing" | "writing" | "decision";
 type CalibrationPhase = "preparing" | "measuring" | "ready" | "failed";
 
@@ -174,7 +174,6 @@ export function DictaApp() {
     if (cameraMode !== "camera" || !detectorRef.current) return;
     if (screen !== "calibration-screen") return;
     let measurementTimer: number | undefined;
-    let feedbackTimer: number | undefined;
     let transitionTimer: number | undefined;
     const finishMeasurement = () => {
       try {
@@ -185,8 +184,13 @@ export function DictaApp() {
         setCalibrationPhase("ready");
         setCalibrationSuccess(true);
         playCalibrationBeep();
-        feedbackTimer = window.setTimeout(() => setCalibrationSuccess(false), 450);
-        transitionTimer = window.setTimeout(() => setScreen("dictation-ready"), 650);
+        transitionTimer = window.setTimeout(() => {
+          setCalibrationSuccess(false);
+          setFragmentIndex(0);
+          setReviewCounts(Array(fragments.length).fill(0));
+          setPhase("memorizing");
+          setScreen("session");
+        }, 450);
       } catch {
         setCalibrationPhase("failed");
         setToast("Je n’ai pas assez vu ton visage. Replace-toi puis réessaie.");
@@ -199,10 +203,9 @@ export function DictaApp() {
     return () => {
       window.clearTimeout(preparationTimer);
       if (measurementTimer !== undefined) window.clearTimeout(measurementTimer);
-      if (feedbackTimer !== undefined) window.clearTimeout(feedbackTimer);
       if (transitionTimer !== undefined) window.clearTimeout(transitionTimer);
     };
-  }, [calibrationAttempt, cameraMode, playCalibrationBeep, screen]);
+  }, [calibrationAttempt, cameraMode, fragments.length, playCalibrationBeep, screen]);
 
   const beginManual = () => {
     stopCamera();
@@ -213,14 +216,6 @@ export function DictaApp() {
     setPhase("memorizing");
     setFragmentIndex(0);
     setReviewCounts(Array(fragments.length).fill(0));
-  };
-
-  const startSession = () => {
-    lastCameraReadingAtRef.current = Date.now();
-    setFragmentIndex(0);
-    setReviewCounts(Array(fragments.length).fill(0));
-    setPhase("memorizing");
-    setScreen("session");
   };
 
   const hideFragment = () => setPhase("writing");
@@ -322,17 +317,6 @@ export function DictaApp() {
             {calibrationPhase === "failed" && (
               <button className="primary-button" onClick={() => { detectorRef.current?.beginCalibration("screen"); setCalibrationPhase("preparing"); setCalibrationAttempt((value) => value + 1); }}>Réessayer</button>
             )}
-          </div>
-        </section>
-      )}
-
-      {screen === "dictation-ready" && (
-        <section className="session-shell ready-shell">
-          <div className="hero"><div className="eyebrow">Réglage terminé</div><h1>Tout est prêt.</h1><p>La caméra sait maintenant reconnaître quand tu regardes cet écran.</p></div>
-          <div className="card stage-card ready-card">
-            <div className="summary-number">✓</div>
-            <p className="stage-help ready-help">Les mots vont apparaître à l’écran. Mémorise-les, puis regarde ton cahier pour les écrire.</p>
-            <button className="primary-button" onClick={startSession}>Commencer la dictée</button>
           </div>
         </section>
       )}

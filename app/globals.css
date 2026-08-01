@@ -110,8 +110,6 @@ button { touch-action: manipulation; }
 .stage-card { position: relative; flex: 1; min-height: 440px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 34px 24px; overflow: hidden; }
 .calibration-card { justify-content: flex-start; padding-top: 72px; }
 .calibration-card .summary-number { margin-top: 0; }
-.ready-card { justify-content: flex-start; padding-top: 72px; }
-.ready-card .summary-number { margin-top: 0; }
 .gaze-target-card { justify-content: flex-start; padding-top: 82px; }
 .gaze-target-card .fragment { margin-top: 12px; }
 .stage-card::before { content: ""; position: absolute; inset: 18px; border: 1px dashed rgba(102,84,217,.18); border-radius: 21px; pointer-events: none; }
@@ -124,7 +122,6 @@ button { touch-action: manipulation; }
 .fragment { max-width: 480px; margin: 35px 0 20px; font-size: clamp(36px, 10vw, 60px); font-weight: 850; letter-spacing: -.045em; line-height: 1.08; }
 .hidden-fragment { width: min(330px, 82%); height: 90px; border-radius: 22px; background: repeating-linear-gradient(100deg, #e9e4df 0 18px, #f2ede7 18px 36px); filter: blur(2px); margin: 45px 0 22px; }
 .stage-help { max-width: 340px; color: var(--muted); line-height: 1.5; margin: 0; }
-.ready-help { max-width: 360px; margin-top: 22px; }
 .choice-grid { width: min(410px, 100%); margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .choice-button { min-height: 70px; }
 .choice-button.review { background: var(--violet-soft); color: var(--violet-dark); }
