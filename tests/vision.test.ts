@@ -69,25 +69,34 @@ test("recognizes the calibrated screen pose without a notebook calibration", () 
   );
 });
 
-test("keeps screen when either the head or both eyes still point at it", () => {
+test("requires the head and the eyes to point at the screen", () => {
   const screen = calibrationSample(features({}));
   const calibration = createScreenCalibration(screen);
 
   assert.equal(
     classifyFeatures(features({ leftIrisX: 0.75, rightIrisX: 0.75 }), calibration).state,
-    "screen",
-    "head facing the screen is sufficient",
+    "notebook",
+    "a head facing the screen is not enough when the eyes look away",
   );
   assert.equal(
     classifyFeatures(features({ headPitch: 0.29, headYaw: 0.16 }), calibration).state,
-    "screen",
-    "eyes pointing at the screen are sufficient",
+    "notebook",
+    "eyes pointing at the screen are not enough when the head looks away",
   );
   assert.equal(
     classifyFeatures(features({ headPitch: 0.29, headYaw: 0.16, leftIrisX: 0.75, rightIrisX: 0.75 }), calibration).state,
     "notebook",
     "both head and eyes must be away",
   );
+});
+
+test("accepts low-confidence notebook evidence to leave the screen sooner", () => {
+  const stabilizer = new AttentionStabilizer({ enterNotebookMs: 200, returnScreenMs: 500, minimumConfidence: 0.18 });
+  stabilizer.update("screen", 1, 0);
+  assert.equal(stabilizer.update("screen", 1, 500), "screen");
+
+  assert.equal(stabilizer.update("notebook", 0.13, 500), "screen");
+  assert.equal(stabilizer.update("notebook", 0.13, 700), "notebook");
 });
 
 test("leaving the camera frame immediately exits the screen state", () => {

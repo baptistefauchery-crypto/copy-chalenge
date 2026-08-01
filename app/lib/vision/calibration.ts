@@ -56,15 +56,15 @@ function distanceTo(sample: AttentionFeatures, target: CalibrationSample, other:
 const tolerance = (deviation: number, floor: number) => Math.max(floor, deviation * 3);
 
 /**
- * The same rule used by small MediaPipe gaze/head-pose projects: compare iris
- * displacement and head orientation independently, then accept either signal.
+ * Compare iris displacement and head orientation independently, then require
+ * both signals to agree before calling the sample a screen look.
  */
 function looksAtCalibratedScreen(sample: AttentionFeatures, screen: CalibrationSample) {
   const headPitchDelta = Math.abs(sample.headPitch - screen.mean.headPitch);
   const headYawDelta = Math.abs(sample.headYaw - screen.mean.headYaw);
   const headFacesScreen =
-    headPitchDelta <= tolerance(screen.deviation.headPitch, 0.055) &&
-    headYawDelta <= tolerance(screen.deviation.headYaw, 0.07);
+    headPitchDelta <= tolerance(screen.deviation.headPitch, 0.045) &&
+    headYawDelta <= tolerance(screen.deviation.headYaw, 0.06);
 
   const eyeDistance = (side: "left" | "right") => {
     const xKey = `${side}IrisX` as const;
@@ -74,9 +74,9 @@ function looksAtCalibratedScreen(sample: AttentionFeatures, screen: CalibrationS
     return Math.hypot(x, y);
   };
   const eyesAreOpen = sample.leftEyeOpen > 0.08 && sample.rightEyeOpen > 0.08;
-  const eyesLookAtScreen = eyesAreOpen && eyeDistance("left") <= 1 && eyeDistance("right") <= 1;
+  const eyesLookAtScreen = eyesAreOpen && eyeDistance("left") <= 0.9 && eyeDistance("right") <= 0.9;
 
-  return { looking: headFacesScreen || eyesLookAtScreen, headFacesScreen, eyesLookAtScreen };
+  return { looking: headFacesScreen && eyesLookAtScreen, headFacesScreen, eyesLookAtScreen };
 }
 
 /**

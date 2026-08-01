@@ -73,6 +73,11 @@ export function DictaApp() {
     setLettersPerFragment(getLevel(level).recommendedLetters);
   };
 
+  const setLetterTarget = (value: number) => {
+    if (!Number.isFinite(value)) return;
+    setLettersPerFragment(Math.min(100, Math.max(1, Math.round(value))));
+  };
+
   useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(null), 2600);
@@ -140,8 +145,8 @@ export function DictaApp() {
     let cancelled = false;
     const detector = new MediaPipeAttentionDetector({
       analysisFps: 10,
-      enterNotebookMs: 300,
-      returnScreenMs: 500,
+      enterNotebookMs: 220,
+      returnScreenMs: 600,
       wasmPath: "/mediapipe/wasm",
       modelAssetPath: "/models/face_landmarker.task",
     });
@@ -281,9 +286,19 @@ export function DictaApp() {
             <div className="settings-row">
               <div><strong>Lettres par étape</strong><div className="muted">Arrondi au mot supérieur · Environ {fragments.length} fragments</div></div>
               <div className="stepper">
-                <button aria-label="Réduire le nombre de lettres" onClick={() => setLettersPerFragment((value) => Math.max(10, value - 5))}>−</button>
-                <strong>{lettersPerFragment}</strong>
-                <button aria-label="Augmenter le nombre de lettres" onClick={() => setLettersPerFragment((value) => Math.min(60, value + 5))}>+</button>
+                <button aria-label="Réduire le nombre de lettres" onClick={() => setLetterTarget(lettersPerFragment - 1)}>−</button>
+                <input
+                  className="letters-input"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="100"
+                  step="1"
+                  aria-label="Nombre de lettres par étape"
+                  value={lettersPerFragment}
+                  onChange={(event) => setLetterTarget(Number(event.target.value))}
+                />
+                <button aria-label="Augmenter le nombre de lettres" onClick={() => setLetterTarget(lettersPerFragment + 1)}>+</button>
               </div>
             </div>
             <button className="primary-button" disabled={!text.trim() || cameraLoading} onClick={startCamera}>{cameraLoading ? "Préparation de la caméra…" : "Préparer la caméra"}</button>

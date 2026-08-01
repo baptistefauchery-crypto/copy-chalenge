@@ -22,7 +22,8 @@ export class AttentionStabilizer {
   }
 
   update(raw: AttentionState, confidence: number, timestamp: number): AttentionState {
-    if (raw === "unknown" || confidence < this.minimumConfidence) return this.stable;
+    const confidenceFloor = raw === "notebook" ? this.minimumConfidence * 0.7 : this.minimumConfidence;
+    if (raw === "unknown" || confidence < confidenceFloor) return this.stable;
     if (raw === this.stable) {
       this.candidate = "unknown";
       return this.stable;
