@@ -2,23 +2,49 @@
 
 import { useEffect, useState } from "react";
 
+const OFFLINE_NOTICE_DURATION_MS = 4000;
+
 /** Announces connectivity changes without blocking an active dictation. */
 export function OfflineStatus() {
-  const [online, setOnline] = useState(true);
+  const [showOfflineNotice, setShowOfflineNotice] = useState(false);
 
   useEffect(() => {
-    const updateStatus = () => setOnline(navigator.onLine);
+    let hideTimer: number | null = null;
+
+    const clearHideTimer = () => {
+      if (hideTimer !== null) {
+        window.clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    };
+
+    const updateStatus = () => {
+      clearHideTimer();
+
+      if (navigator.onLine) {
+        setShowOfflineNotice(false);
+        return;
+      }
+
+      setShowOfflineNotice(true);
+      hideTimer = window.setTimeout(() => {
+        setShowOfflineNotice(false);
+        hideTimer = null;
+      }, OFFLINE_NOTICE_DURATION_MS);
+    };
+
     const initialStatusTimer = window.setTimeout(updateStatus, 0);
     window.addEventListener("online", updateStatus);
     window.addEventListener("offline", updateStatus);
     return () => {
       window.clearTimeout(initialStatusTimer);
+      clearHideTimer();
       window.removeEventListener("online", updateStatus);
       window.removeEventListener("offline", updateStatus);
     };
   }, []);
 
-  if (online) return null;
+  if (!showOfflineNotice) return null;
 
   return (
     <div

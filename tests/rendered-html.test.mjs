@@ -56,6 +56,7 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(serviceWorker, /icon-maskable-512\.png/);
 
   const pwaProvider = await readFile(new URL("../app/components/pwa/PwaProvider.tsx", import.meta.url), "utf8");
+  const offlineStatus = await readFile(new URL("../app/components/pwa/OfflineStatus.tsx", import.meta.url), "utf8");
   const dictaApp = await readFile(new URL("../app/DictaApp.tsx", import.meta.url), "utf8");
   const scoring = await readFile(new URL("../app/lib/domain/scoring.ts", import.meta.url), "utf8");
   const globals = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
@@ -64,6 +65,8 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(pwaProvider, /Installer\s+l’application/);
   assert.match(pwaProvider, /Google Chrome/);
   assert.match(pwaProvider, /display-mode: fullscreen/);
+  assert.match(offlineStatus, /OFFLINE_NOTICE_DURATION_MS = 4000/);
+  assert.match(offlineStatus, /setShowOfflineNotice\(false\)/);
   assert.match(dictaApp, /AUTO_HIDE_GRACE_MS = 2000/);
   assert.match(dictaApp, /progressColor/);
   assert.match(dictaApp, /Math\.pow\(progressRatio, 1\.65\)/);
