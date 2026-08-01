@@ -27,7 +27,8 @@ export type CalibrationSample = {
 
 export type AttentionCalibration = {
   screen: CalibrationSample;
-  notebook: CalibrationSample;
+  /** Optional legacy second pose. A screen-only calibration is preferred. */
+  notebook?: CalibrationSample;
   /** Separation of the two centroids in standardized feature space. */
   quality: number;
 };

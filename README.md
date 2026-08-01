@@ -8,7 +8,7 @@ Prototype Android de dictée visuelle : l’élève mémorise quelques mots, reg
 - fonctionnement hors ligne après le premier chargement
 - découpage naturel d’un texte français en fragments
 - détection locale `écran / cahier` avec MediaPipe
-- calibration personnalisée en deux étapes
+- réglage automatique sur une courte lecture à l'écran
 - masquage sécurisé lorsque le visage disparaît
 - mode manuel de secours
 - bilan local des relectures

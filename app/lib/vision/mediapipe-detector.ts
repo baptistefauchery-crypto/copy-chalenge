@@ -1,4 +1,4 @@
-import { classifyFeatures, createCalibration, summarizeSamples } from "./calibration";
+import { classifyFeatures, createCalibration, createScreenCalibration, summarizeSamples } from "./calibration";
 import { extractAttentionFeatures } from "./features";
 import { AttentionStabilizer, type StabilizerOptions } from "./smoothing";
 import type {
@@ -89,6 +89,11 @@ export class MediaPipeAttentionDetector implements AttentionDetector {
 
   beginCalibration(target: "screen" | "notebook"): void {
     this.samples[target] = [];
+    if (target === "screen") {
+      this.calibration = null;
+      this.calibrationParts = {};
+      this.stabilizer.reset();
+    }
     this.collecting = target;
   }
 
@@ -96,7 +101,9 @@ export class MediaPipeAttentionDetector implements AttentionDetector {
     if (this.collecting === target) this.collecting = null;
     const sample = summarizeSamples(this.samples[target]);
     this.calibrationParts[target] = sample;
-    if (this.calibrationParts.screen && this.calibrationParts.notebook) {
+    if (target === "screen") {
+      this.calibration = createScreenCalibration(sample);
+    } else if (this.calibrationParts.screen && this.calibrationParts.notebook) {
       this.calibration = createCalibration(this.calibrationParts.screen, this.calibrationParts.notebook);
     }
     return sample;

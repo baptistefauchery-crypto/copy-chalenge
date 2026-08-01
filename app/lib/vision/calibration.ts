@@ -14,15 +14,15 @@ export const FEATURE_KEYS = [
   "rightEyeOpen",
 ] as const satisfies readonly (keyof AttentionFeatures)[];
 
-// Looking down changes head pitch and iris position more reliably than blink or
-// eye-opening measurements, so the classifier gives those signals more weight.
+// A head turn must count as leaving the screen too. Eye opening varies a lot
+// during normal blinks, so it is deliberately only a weak signal.
 const FEATURE_WEIGHTS: Record<(typeof FEATURE_KEYS)[number], number> = {
   headPitch: 1.5,
-  headYaw: 0.6,
+  headYaw: 1.2,
   leftIrisY: 1.35,
   rightIrisY: 1.35,
-  leftEyeOpen: 0.35,
-  rightEyeOpen: 0.35,
+  leftEyeOpen: 0.15,
+  rightEyeOpen: 0.15,
 };
 const FEATURE_WEIGHT_TOTAL = FEATURE_KEYS.reduce((sum, key) => sum + FEATURE_WEIGHTS[key], 0);
 
@@ -49,6 +49,24 @@ function distanceTo(sample: AttentionFeatures, target: CalibrationSample, other:
   return Math.sqrt(squared / FEATURE_WEIGHT_TOTAL);
 }
 
+function distanceFromScreen(sample: AttentionFeatures, screen: CalibrationSample) {
+  const squared = FEATURE_KEYS.reduce((sum, key) => {
+    // A short natural calibration contains little movement. The floor keeps a
+    // single unusually steady feature from dominating the whole decision.
+    const scale = Math.max(screen.deviation[key], key.includes("Iris") ? 0.035 : 0.025);
+    return sum + FEATURE_WEIGHTS[key] * ((sample[key] - screen.mean[key]) / scale) ** 2;
+  }, 0);
+  return Math.sqrt(squared / FEATURE_WEIGHT_TOTAL);
+}
+
+/**
+ * Calibrates the one state the camera can observe unambiguously: looking at
+ * this screen. Everything sufficiently unlike that reference is "notebook".
+ */
+export function createScreenCalibration(screen: CalibrationSample): AttentionCalibration {
+  return { screen, quality: 1 };
+}
+
 export function createCalibration(
   screen: CalibrationSample,
   notebook: CalibrationSample,
@@ -61,6 +79,17 @@ export function classifyFeatures(
   sample: AttentionFeatures,
   calibration: AttentionCalibration,
 ): { state: Exclude<AttentionState, "unknown">; confidence: number } {
+  if (!calibration.notebook) {
+    const distance = distanceFromScreen(sample, calibration.screen);
+    const screenRadius = 2.6;
+    const margin = Math.abs(distance - screenRadius) / screenRadius;
+    return {
+      state: distance <= screenRadius ? "screen" : "notebook",
+      // Hysteresis handles temporal noise. Keeping a small confidence floor
+      // avoids preserving a stale "screen" state forever near the boundary.
+      confidence: Math.min(1, 0.25 + margin * 0.75),
+    };
+  }
   const screenDistance = distanceTo(sample, calibration.screen, calibration.notebook);
   const notebookDistance = distanceTo(sample, calibration.notebook, calibration.screen);
   const total = Math.max(screenDistance + notebookDistance, 1e-5);

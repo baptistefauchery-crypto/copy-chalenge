@@ -8,13 +8,13 @@ import {
   type AttentionState,
 } from "./lib/vision";
 
-type Screen = "setup" | "placement" | "calibration-screen" | "calibration-notebook" | "dictation-ready" | "session" | "summary";
+type Screen = "setup" | "placement" | "calibration-screen" | "dictation-ready" | "session" | "summary";
 type SessionPhase = "memorizing" | "writing" | "decision";
-type CalibrationPhase = "preparing" | "measuring" | "ready";
+type CalibrationPhase = "preparing" | "measuring" | "ready" | "failed";
 
 const DEMO_TEXT = "Le petit renard traverse le jardin. Il s’arrête près des fleurs, puis écoute le vent dans les arbres.";
-const CALIBRATION_PREPARATION_MS = { screen: 2000, notebook: 5000 } as const;
-const CALIBRATION_MEASUREMENT_MS = 3000;
+const CALIBRATION_PREPARATION_MS = 800;
+const CALIBRATION_MEASUREMENT_MS = 1500;
 
 export function DictaApp() {
   const [screen, setScreen] = useState<Screen>("setup");
@@ -26,6 +26,7 @@ export function DictaApp() {
   const [attention, setAttention] = useState<AttentionState>("unknown");
   const [faceDetected, setFaceDetected] = useState(false);
   const [calibrationPhase, setCalibrationPhase] = useState<CalibrationPhase>("preparing");
+  const [calibrationAttempt, setCalibrationAttempt] = useState(0);
   const [phase, setPhase] = useState<SessionPhase>("memorizing");
   const [fragmentIndex, setFragmentIndex] = useState(0);
   const [reviewCounts, setReviewCounts] = useState<number[]>([]);
@@ -159,28 +160,38 @@ export function DictaApp() {
 
   useEffect(() => {
     if (cameraMode !== "camera" || !detectorRef.current) return;
-    if (screen !== "calibration-screen" && screen !== "calibration-notebook") return;
-    const target = screen === "calibration-screen" ? "screen" : "notebook";
+    if (screen !== "calibration-screen") return;
     let measurementTimer: number | undefined;
     let feedbackTimer: number | undefined;
+    let transitionTimer: number | undefined;
     const finishMeasurement = () => {
-      setCalibrationPhase("ready");
-      if (target !== "notebook") return;
-      setCalibrationSuccess(true);
-      playCalibrationBeep();
-      feedbackTimer = window.setTimeout(() => setCalibrationSuccess(false), 500);
+      try {
+        // Stop collecting at the exact end of the measurement. Previously this
+        // only happened after a click, polluting the screen reference with all
+        // the movements made between calibration steps.
+        detectorRef.current?.finishCalibration("screen");
+        setCalibrationPhase("ready");
+        setCalibrationSuccess(true);
+        playCalibrationBeep();
+        feedbackTimer = window.setTimeout(() => setCalibrationSuccess(false), 450);
+        transitionTimer = window.setTimeout(() => setScreen("dictation-ready"), 650);
+      } catch {
+        setCalibrationPhase("failed");
+        setToast("Je n’ai pas assez vu ton visage. Replace-toi puis réessaie.");
+      }
     };
     const preparationTimer = window.setTimeout(() => {
-      detectorRef.current?.beginCalibration(target);
+      detectorRef.current?.beginCalibration("screen");
       setCalibrationPhase("measuring");
       measurementTimer = window.setTimeout(finishMeasurement, CALIBRATION_MEASUREMENT_MS);
-    }, CALIBRATION_PREPARATION_MS[target]);
+    }, CALIBRATION_PREPARATION_MS);
     return () => {
       window.clearTimeout(preparationTimer);
       if (measurementTimer !== undefined) window.clearTimeout(measurementTimer);
       if (feedbackTimer !== undefined) window.clearTimeout(feedbackTimer);
+      if (transitionTimer !== undefined) window.clearTimeout(transitionTimer);
     };
-  }, [cameraMode, playCalibrationBeep, screen]);
+  }, [calibrationAttempt, cameraMode, playCalibrationBeep, screen]);
 
   const beginManual = () => {
     stopCamera();
@@ -191,29 +202,6 @@ export function DictaApp() {
     setPhase("memorizing");
     setFragmentIndex(0);
     setReviewCounts(Array(fragments.length).fill(0));
-  };
-
-  const runCalibrationStep = (next: Screen) => {
-    const target = screen === "calibration-screen" ? "screen" : "notebook";
-    try {
-      detectorRef.current?.finishCalibration(target);
-    } catch {
-      setToast("Reste bien en place pendant toute la mesure");
-      return false;
-    }
-    if (target === "notebook") {
-      const calibration = detectorRef.current?.getCalibration();
-      if (!calibration) {
-        setCalibrationPhase("preparing");
-        setToast("La mesure n’a pas pu être enregistrée. Recommençons.");
-        setScreen("placement");
-        return false;
-      }
-    }
-    setToast("Mesure enregistrée");
-    setCalibrationPhase("preparing");
-    window.setTimeout(() => setScreen(next), 450);
-    return true;
   };
 
   const startSession = () => {
@@ -312,37 +300,22 @@ export function DictaApp() {
 
       {screen === "calibration-screen" && (
         <section className="session-shell calibration-shell">
-          <div className="hero"><div className="eyebrow">Calibration · 1 sur 2</div><h1>Regarde le point.</h1><p>Garde la tête tranquille et regarde le centre de l’écran pendant quelques secondes.</p></div>
+          <div className="hero"><div className="eyebrow">Réglage automatique</div><h1>Lis ces mots naturellement.</h1><p>Pas besoin de rester immobile : regarde simplement l’écran comme pendant la dictée.</p></div>
           <div className="card stage-card calibration-card">
-            <div className="summary-number">●</div>
+            <div className="fragment">{fragments[0]}</div>
             <p className="stage-help calibration-help">
-              {calibrationPhase === "preparing" ? "Regarde le point. La mesure va commencer dans un instant." : calibrationPhase === "measuring" ? "Garde les yeux sur le point encore un instant." : "La mesure est terminée."}
+              {calibrationPhase === "preparing" ? "Regarde les mots, le réglage démarre tout seul." : calibrationPhase === "measuring" ? "C’est presque terminé…" : calibrationPhase === "failed" ? "Replace ton visage dans le champ de la caméra." : "C’est bon, tu peux bouger."}
             </p>
-            <button className="primary-button" disabled={calibrationPhase !== "ready"} onClick={() => runCalibrationStep("calibration-notebook")}>
-              {calibrationPhase === "ready" ? "Continuer" : calibrationPhase === "preparing" ? "Prépare-toi…" : "Mesure en cours…"}
-            </button>
-          </div>
-        </section>
-      )}
-
-      {screen === "calibration-notebook" && (
-        <section className="session-shell">
-          <div className="hero"><div className="eyebrow">Calibration · 2 sur 2</div><h1>Regarde ton cahier.</h1><p>Baisse les yeux vers l’endroit où tu vas écrire, sans déplacer le téléphone.</p></div>
-          <div className="card stage-card calibration-card">
-            <div className="summary-number">↓</div>
-            <p className="stage-help calibration-help">
-              {calibrationPhase === "preparing" ? "Baisse les yeux maintenant. La mesure commencera dans quelques secondes." : calibrationPhase === "measuring" ? "Garde les yeux sur ton cahier encore un instant." : "La mesure est terminée."}
-            </p>
-            <button className="primary-button" disabled={calibrationPhase !== "ready"} onClick={() => runCalibrationStep("dictation-ready")}>
-              {calibrationPhase === "ready" ? "Terminer la calibration" : calibrationPhase === "preparing" ? "Prépare-toi…" : "Mesure en cours…"}
-            </button>
+            {calibrationPhase === "failed" && (
+              <button className="primary-button" onClick={() => { setCalibrationPhase("preparing"); setCalibrationAttempt((value) => value + 1); }}>Réessayer</button>
+            )}
           </div>
         </section>
       )}
 
       {screen === "dictation-ready" && (
         <section className="session-shell ready-shell">
-          <div className="hero"><div className="eyebrow">Calibration terminée</div><h1>Tout est prêt.</h1><p>Ton regard est bien calibré. Tu peux maintenant passer à la première étape de la dictée.</p></div>
+          <div className="hero"><div className="eyebrow">Réglage terminé</div><h1>Tout est prêt.</h1><p>La caméra sait maintenant reconnaître quand tu regardes cet écran.</p></div>
           <div className="card stage-card ready-card">
             <div className="summary-number">✓</div>
             <p className="stage-help ready-help">Les mots vont apparaître à l’écran. Mémorise-les, puis regarde ton cahier pour les écrire.</p>

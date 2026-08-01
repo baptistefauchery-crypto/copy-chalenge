@@ -14,15 +14,12 @@ const unsubscribe = detector.subscribe((reading) => {
 await detector.start(videoElement); // demande la caméra frontale
 
 detector.beginCalibration("screen");
-// attendre 2 à 3 secondes
+// lire naturellement à l'écran pendant environ 1,5 seconde
 detector.finishCalibration("screen");
 
-detector.beginCalibration("notebook");
-// attendre 2 à 3 secondes
-detector.finishCalibration("notebook");
-
 const calibration = detector.getCalibration();
-// Une qualité faible indique que les deux poses sont trop semblables.
+// Le moteur reconnaît l'état "écran" ; une pose suffisamment différente est
+// considérée comme "notebook".
 
 unsubscribe();
 detector.stop();
@@ -37,10 +34,10 @@ Une disparition du visage produit immédiatement `notebook` avec
 `faceDetected: false`. Le texte doit donc rester caché. Après le retour du visage,
 le moteur exige une détection stable de l'écran avant de revenir à `screen`.
 
-Avant la fin des deux calibrations, un visage visible produit `unknown`. La
-calibration nécessite au moins cinq images valides par pose. Les applications
-peuvent utiliser `AttentionCalibration.quality` pour refuser une calibration
-insuffisamment séparée (une valeur de `2` constitue un point de départ à tester).
+Avant la fin de la calibration écran, un visage visible produit `unknown`. La
+calibration nécessite au moins cinq images valides. Une seconde référence
+`notebook` reste acceptée par l'API pour compatibilité, mais elle n'est plus
+nécessaire au parcours normal.
 
 ## Configuration des ressources
 
