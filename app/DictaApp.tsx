@@ -172,7 +172,6 @@ function LevelPicker({ selectedLevel, onSelect }: { selectedLevel: PrimaryLevel;
         onClick={() => setIsOpen((open) => !open)}
       >
         <span className="level-trigger-copy">
-          <span className="level-trigger-kicker">Niveau de classe</span>
           <strong>{getLevel(selectedLevel).label}</strong>
         </span>
         <span className={`level-chevron ${isOpen ? "is-open" : ""}`} aria-hidden="true">⌄</span>
