@@ -8,7 +8,9 @@ import type {
 export const FEATURE_KEYS = [
   "headPitch",
   "headYaw",
+  "leftIrisX",
   "leftIrisY",
+  "rightIrisX",
   "rightIrisY",
   "leftEyeOpen",
   "rightEyeOpen",
@@ -19,7 +21,9 @@ export const FEATURE_KEYS = [
 const FEATURE_WEIGHTS: Record<(typeof FEATURE_KEYS)[number], number> = {
   headPitch: 1.5,
   headYaw: 1.2,
+  leftIrisX: 1.35,
   leftIrisY: 1.35,
+  rightIrisX: 1.35,
   rightIrisY: 1.35,
   leftEyeOpen: 0.15,
   rightEyeOpen: 0.15,
@@ -49,14 +53,30 @@ function distanceTo(sample: AttentionFeatures, target: CalibrationSample, other:
   return Math.sqrt(squared / FEATURE_WEIGHT_TOTAL);
 }
 
-function distanceFromScreen(sample: AttentionFeatures, screen: CalibrationSample) {
-  const squared = FEATURE_KEYS.reduce((sum, key) => {
-    // A short natural calibration contains little movement. The floor keeps a
-    // single unusually steady feature from dominating the whole decision.
-    const scale = Math.max(screen.deviation[key], key.includes("Iris") ? 0.035 : 0.025);
-    return sum + FEATURE_WEIGHTS[key] * ((sample[key] - screen.mean[key]) / scale) ** 2;
-  }, 0);
-  return Math.sqrt(squared / FEATURE_WEIGHT_TOTAL);
+const tolerance = (deviation: number, floor: number) => Math.max(floor, deviation * 3);
+
+/**
+ * The same rule used by small MediaPipe gaze/head-pose projects: compare iris
+ * displacement and head orientation independently, then accept either signal.
+ */
+function looksAtCalibratedScreen(sample: AttentionFeatures, screen: CalibrationSample) {
+  const headPitchDelta = Math.abs(sample.headPitch - screen.mean.headPitch);
+  const headYawDelta = Math.abs(sample.headYaw - screen.mean.headYaw);
+  const headFacesScreen =
+    headPitchDelta <= tolerance(screen.deviation.headPitch, 0.055) &&
+    headYawDelta <= tolerance(screen.deviation.headYaw, 0.07);
+
+  const eyeDistance = (side: "left" | "right") => {
+    const xKey = `${side}IrisX` as const;
+    const yKey = `${side}IrisY` as const;
+    const x = (sample[xKey] - screen.mean[xKey]) / tolerance(screen.deviation[xKey], 0.09);
+    const y = (sample[yKey] - screen.mean[yKey]) / tolerance(screen.deviation[yKey], 0.10);
+    return Math.hypot(x, y);
+  };
+  const eyesAreOpen = sample.leftEyeOpen > 0.08 && sample.rightEyeOpen > 0.08;
+  const eyesLookAtScreen = eyesAreOpen && eyeDistance("left") <= 1 && eyeDistance("right") <= 1;
+
+  return { looking: headFacesScreen || eyesLookAtScreen, headFacesScreen, eyesLookAtScreen };
 }
 
 /**
@@ -80,14 +100,12 @@ export function classifyFeatures(
   calibration: AttentionCalibration,
 ): { state: Exclude<AttentionState, "unknown">; confidence: number } {
   if (!calibration.notebook) {
-    const distance = distanceFromScreen(sample, calibration.screen);
-    const screenRadius = 2.6;
-    const margin = Math.abs(distance - screenRadius) / screenRadius;
+    const result = looksAtCalibratedScreen(sample, calibration.screen);
     return {
-      state: distance <= screenRadius ? "screen" : "notebook",
-      // Hysteresis handles temporal noise. Keeping a small confidence floor
-      // avoids preserving a stale "screen" state forever near the boundary.
-      confidence: Math.min(1, 0.25 + margin * 0.75),
+      state: result.looking ? "screen" : "notebook",
+      // The decision is already the union of two explicit signals. Temporal
+      // hysteresis, not a confidence dead-zone, handles noisy frames.
+      confidence: 1,
     };
   }
   const screenDistance = distanceTo(sample, calibration.screen, calibration.notebook);

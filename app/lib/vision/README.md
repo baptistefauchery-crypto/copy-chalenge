@@ -18,8 +18,8 @@ detector.beginCalibration("screen");
 detector.finishCalibration("screen");
 
 const calibration = detector.getCalibration();
-// Le moteur reconnaît l'état "écran" ; une pose suffisamment différente est
-// considérée comme "notebook".
+// Le moteur reconnaît l'état "écran" si la tête reste orientée vers sa
+// référence OU si les deux iris restent proches de leur position de référence.
 
 unsubscribe();
 detector.stop();
@@ -33,6 +33,12 @@ detector.stop();
 Une disparition du visage produit immédiatement `notebook` avec
 `faceDetected: false`. Le texte doit donc rester caché. Après le retour du visage,
 le moteur exige une détection stable de l'écran avant de revenir à `screen`.
+
+Le calcul reprend l'approche courante des projets MediaPipe de suivi du regard :
+position de chaque iris relative aux coins de l'œil, orientation de tête relative
+à une référence, puis lissage temporel. Références :
+[MediaPipe Iris](https://github.com/google-ai-edge/mediapipe/blob/master/docs/solutions/iris.md)
+et [Python-Gaze-Face-Tracker](https://github.com/alireza787b/Python-Gaze-Face-Tracker).
 
 Avant la fin de la calibration écran, un visage visible produit `unknown`. La
 calibration nécessite au moins cinq images valides. Une seconde référence

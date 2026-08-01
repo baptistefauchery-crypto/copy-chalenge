@@ -38,7 +38,6 @@ export function DictaApp() {
   const screenRef = useRef(screen);
   const phaseRef = useRef(phase);
   const cameraModeRef = useRef(cameraMode);
-  const hasSeenScreenInFragmentRef = useRef(false);
 
   useEffect(() => {
     screenRef.current = screen;
@@ -130,10 +129,10 @@ export function DictaApp() {
       setAttention(reading.state);
       setFaceDetected(reading.faceDetected);
       if (screenRef.current !== "session" || cameraModeRef.current !== "camera") return;
-      if (phaseRef.current === "memorizing" && reading.state === "screen") {
-        hasSeenScreenInFragmentRef.current = true;
-      }
-      if (phaseRef.current === "memorizing" && reading.state === "notebook" && hasSeenScreenInFragmentRef.current) setPhase("writing");
+      // Missing face is published as "notebook" by the detector. Never gate
+      // this transition on a previous screen reading: leaving the frame must
+      // hide the text immediately.
+      if (phaseRef.current === "memorizing" && reading.state === "notebook") setPhase("writing");
       if (phaseRef.current === "writing" && reading.state === "screen") setPhase("decision");
     });
 
@@ -205,7 +204,6 @@ export function DictaApp() {
   };
 
   const startSession = () => {
-    hasSeenScreenInFragmentRef.current = false;
     setFragmentIndex(0);
     setReviewCounts(Array(fragments.length).fill(0));
     setPhase("memorizing");
@@ -216,7 +214,6 @@ export function DictaApp() {
   const showDecision = () => setPhase("decision");
 
   const review = () => {
-    hasSeenScreenInFragmentRef.current = false;
     setReviewCounts((counts) => counts.map((count, index) => index === fragmentIndex ? count + 1 : count));
     setPhase("memorizing");
   };
@@ -227,7 +224,6 @@ export function DictaApp() {
       setScreen("summary");
       return;
     }
-    hasSeenScreenInFragmentRef.current = false;
     setFragmentIndex((value) => value + 1);
     setPhase("memorizing");
   };

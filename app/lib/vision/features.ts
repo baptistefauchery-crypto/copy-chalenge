@@ -42,7 +42,9 @@ export function extractAttentionFeatures(
     // These are robust pose proxies. Calibration turns them into user-specific signals.
     headPitch: (nose.y - eyeMid.y) / faceHeight,
     headYaw: (nose.x - eyeMid.x) / faceWidth,
+    leftIrisX: ratioBetween(leftIris.x, leftOuter.x, leftInner.x),
     leftIrisY: ratioBetween(leftIris.y, leftTop.y, leftBottom.y),
+    rightIrisX: ratioBetween(rightIris.x, rightInner.x, rightOuter.x),
     rightIrisY: ratioBetween(rightIris.y, rightTop.y, rightBottom.y),
     leftEyeOpen: distance(leftTop, leftBottom) / Math.max(distance(leftOuter, leftInner), 1e-5),
     rightEyeOpen: distance(rightTop, rightBottom) / Math.max(distance(rightOuter, rightInner), 1e-5),

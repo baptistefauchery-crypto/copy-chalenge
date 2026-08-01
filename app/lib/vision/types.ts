@@ -13,7 +13,9 @@ export type AttentionState = "screen" | "notebook" | "unknown";
 export type AttentionFeatures = {
   headPitch: number;
   headYaw: number;
+  leftIrisX: number;
   leftIrisY: number;
+  rightIrisX: number;
   rightIrisY: number;
   leftEyeOpen: number;
   rightEyeOpen: number;
