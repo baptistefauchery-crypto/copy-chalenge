@@ -655,7 +655,7 @@ export function DictaApp() {
             <div className="progress-label"><span>Étape {fragmentIndex + 1} sur {fragments.length}</span><span>{progressPercent} %</span></div>
             <div className="progress-track"><div className="progress-bar" style={{ width: `${progressPercent}%`, backgroundColor: progressColor }} /></div>
           </div>
-          <div className={`card stage-card ${phase === "memorizing" ? "gaze-target-card" : ""}`}>
+          <div className={`card stage-card ${phase === "memorizing" ? "gaze-target-card" : phase === "decision" ? "choice-card" : ""}`}>
             {phase === "memorizing" && (
               <>
                 <div className="status-pill" data-tone={attention === "unknown" ? "unknown" : undefined}><span className="pulse-dot" />{cameraMode === "manual" ? "Mode manuel" : attention === "screen" ? "Regard détecté" : "Analyse du regard"}</div>
@@ -666,8 +666,8 @@ export function DictaApp() {
             )}
             {phase === "decision" && (
               <>
-                <div className="eyebrow">À toi de choisir</div>
-                <div className="fragment" style={{ fontSize: "clamp(30px, 8vw, 46px)" }}>Tu veux revoir les mots ?</div>
+                <div className="eyebrow choice-eyebrow">À toi de choisir</div>
+                <div className="fragment choice-prompt" style={{ fontSize: "clamp(30px, 8vw, 46px)" }}>Revoir les mots pour l’interrogation</div>
                 <div className="choice-grid">
                   <button className="choice-button review" onClick={review}><span className="choice-arrow" aria-hidden="true">↶</span> Revoir</button>
                   <button className="choice-button next" onClick={next}>Continuer <span className="choice-arrow" aria-hidden="true">→</span></button>
