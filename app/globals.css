@@ -121,7 +121,15 @@ button { touch-action: manipulation; }
 .choice-button.next { background: var(--violet); color: white; }
 .manual-hide { margin-top: 28px; border: 0; background: transparent; color: var(--muted); text-decoration: underline; text-underline-offset: 4px; padding: 12px; }
 
-.placement-card { padding: 18px; }
+.placement-shell { padding-top: 0; min-height: 0; }
+.placement-shell > .hero { padding: 24px 2px 16px; }
+.placement-shell > .hero h1 { margin: 8px 0 10px; font-size: clamp(34px, 9vw, 58px); }
+.placement-shell > .hero p { font-size: 15px; line-height: 1.4; }
+.placement-card { padding: 14px; }
+.placement-card .camera-stage { width: 100%; height: clamp(230px, calc(100svh - 560px), 390px); aspect-ratio: auto; }
+.placement-card .placement-tip { margin-top: 12px; }
+.placement-card .primary-button { margin-top: 12px; }
+.placement-card .manual-hide { margin-top: 10px; padding-block: 8px; }
 .camera-stage {
   position: relative;
   width: min(100%, 410px);
@@ -201,6 +209,7 @@ button { touch-action: manipulation; }
 @media (max-width: 430px) {
   .hero { padding-top: 36px; }
   .setup-card { padding: 18px; }
+  .placement-card { padding: 14px; }
   .stage-card { min-height: 420px; padding-inline: 20px; }
 }
 

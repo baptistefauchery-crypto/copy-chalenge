@@ -218,7 +218,7 @@ export function DictaApp() {
       )}
 
       {screen === "placement" && (
-        <section className="session-shell">
+        <section className="session-shell placement-shell">
           <div className="hero"><div className="eyebrow">Installation</div><h1>Place ton visage dans le repère.</h1><p>Pose le téléphone verticalement, à peu près à la longueur d’un bras.</p></div>
           <div className="card setup-card placement-card">
             <div className="camera-stage" data-ready={faceDetected ? "true" : "false"}>
