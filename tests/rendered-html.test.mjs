@@ -53,5 +53,6 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(pwaProvider, /display-mode: standalone/);
   assert.match(pwaProvider, /Installer Dicta sur ce téléphone/);
   assert.match(pwaProvider, /Installer\s+l’application/);
+  assert.match(pwaProvider, /Google Chrome/);
   assert.match(pwaProvider, /display-mode: fullscreen/);
 });

@@ -64,6 +64,14 @@ const installButtonStyle: CSSProperties = {
   boxShadow: "0 0.75rem 1.5rem rgba(22, 58, 50, 0.24)",
 };
 
+const installHelpNoticeStyle: CSSProperties = {
+  ...installNoticeStyle,
+  padding: "0.9rem",
+  border: "1px solid rgba(22, 58, 50, 0.18)",
+  background: "#fffdf8",
+  boxShadow: "0 0.75rem 2rem rgba(22, 58, 50, 0.18)",
+};
+
 function isInstalledApp() {
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
@@ -174,7 +182,10 @@ export function PwaProvider() {
       {showInstallButton && (
         <aside
           aria-label="Installation de l'application"
-          style={{ ...installNoticeStyle, bottom: updateReady ? "6.75rem" : "1rem" }}
+          style={{
+            ...(installHelp ? installHelpNoticeStyle : installNoticeStyle),
+            bottom: updateReady ? "6.75rem" : "1rem",
+          }}
         >
           <button
             type="button"
@@ -195,9 +206,9 @@ export function PwaProvider() {
                 textAlign: "center",
               }}
             >
-              Dans Chrome Android, ouvre le menu ⋮ puis choisis « Installer
-              l’application ». « Ajouter à l’écran d’accueil » crée seulement
-              un raccourci et conserve la barre du navigateur.
+              Pour une vraie application sans barre d’adresse, ouvre ce lien dans
+              Google Chrome puis choisis ⋮ → « Installer l’application ».
+              « Ajouter à l’écran d’accueil » crée seulement un raccourci.
             </span>
           )}
         </aside>
