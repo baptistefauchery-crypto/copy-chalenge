@@ -47,4 +47,8 @@ test("ships the Android PWA and local vision assets", async () => {
   const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
   assert.match(serviceWorker, /CACHE_VERSION = "dicta-v4"/);
   assert.match(serviceWorker, /icon-maskable-512\.png/);
+
+  const pwaProvider = await readFile(new URL("../app/components/pwa/PwaProvider.tsx", import.meta.url), "utf8");
+  assert.match(pwaProvider, /display-mode: standalone/);
+  assert.match(pwaProvider, /Installer Dicta sur ce téléphone/);
 });

@@ -7,6 +7,8 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+type StandaloneNavigator = Navigator & { standalone?: boolean };
+
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const noticeStyle: CSSProperties = {
   position: "fixed",
@@ -41,14 +43,44 @@ const noticeButtonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const installNoticeStyle: CSSProperties = {
+  ...noticeStyle,
+  padding: 0,
+  border: 0,
+  background: "transparent",
+  boxShadow: "none",
+};
+
+const installButtonStyle: CSSProperties = {
+  ...noticeButtonStyle,
+  width: "100%",
+  minHeight: "4.25rem",
+  padding: "0 1.25rem",
+  borderRadius: "1.1rem",
+  fontSize: "1.05rem",
+  fontWeight: 800,
+  boxShadow: "0 0.75rem 1.5rem rgba(22, 58, 50, 0.24)",
+};
+
+function isInstalledApp() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as StandaloneNavigator).standalone === true ||
+    document.referrer.startsWith("android-app://")
+  );
+}
+
 /**
  * Registers the offline worker and presents Android's native install prompt.
- * Render once near the application root. The banner stays out of the way when
+ * Render once near the application root. The install button stays hidden when
  * the app is already installed or the browser cannot offer installation.
  */
 export function PwaProvider() {
   const [installEvent, setInstallEvent] =
     useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstalled, setIsInstalled] = useState(() =>
+    typeof window !== "undefined" && isInstalledApp(),
+  );
   const [updateReady, setUpdateReady] = useState(false);
 
   useEffect(() => {
@@ -95,6 +127,7 @@ export function PwaProvider() {
     };
     const confirmInstallation = () => {
       setInstallEvent(null);
+      setIsInstalled(true);
     };
 
     window.addEventListener("beforeinstallprompt", captureInstallPrompt);
@@ -106,7 +139,9 @@ export function PwaProvider() {
     };
   }, []);
 
-  if (!installEvent && !updateReady) return null;
+  const showInstallButton = Boolean(installEvent) && !isInstalled;
+
+  if (!showInstallButton && !updateReady) return null;
 
   const requestInstallation = async () => {
     if (!installEvent) return;
@@ -119,16 +154,18 @@ export function PwaProvider() {
 
   return (
     <>
-      {installEvent && (
+      {showInstallButton && (
         <aside
           aria-label="Installation de l'application"
-          style={{ ...noticeStyle, bottom: updateReady ? "6.5rem" : "1rem" }}
+          style={{ ...installNoticeStyle, bottom: updateReady ? "6.75rem" : "1rem" }}
         >
-          <span style={{ fontSize: "0.92rem", lineHeight: 1.35 }}>
-            Installez Dicta sur cet appareil pour la retrouver comme une application.
-          </span>
-          <button type="button" onClick={requestInstallation} style={noticeButtonStyle}>
-            Installer
+          <button
+            type="button"
+            aria-label="Installer Dicta sur ce téléphone"
+            onClick={requestInstallation}
+            style={installButtonStyle}
+          >
+            Installer Dicta sur ce téléphone
           </button>
         </aside>
       )}
