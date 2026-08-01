@@ -65,15 +65,17 @@ test("splits French text without losing words or punctuation", () => {
   assert.ok(fragments.every((fragment, index) => index === fragments.length - 1 || countLetters(fragment) >= 15));
 });
 
-test("never mixes two sentences in one fragment", () => {
+test("rounds up to a word without crossing two sentences", () => {
   const fragments = splitTextIntoFragments("Le chat dort. Puis il joue dans le jardin. Le soleil brille.", {
     targetLetters: 8,
   });
 
   assert.deepEqual(fragments, [
     "Le chat dort.",
-    "Puis il joue dans le jardin.",
-    "Le soleil brille.",
+    "Puis il joue",
+    "dans le jardin.",
+    "Le soleil",
+    "brille.",
   ]);
 });
 

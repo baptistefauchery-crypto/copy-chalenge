@@ -1,5 +1,5 @@
 export interface TextSplitOptions {
-  /** Desired fragment size in letters. The fragment ends at the next sentence boundary. */
+  /** Desired fragment size in letters. The fragment ends at a word boundary and never crosses a sentence. */
   targetLetters?: number;
 }
 
@@ -37,12 +37,7 @@ function chooseSize(
     const word = words[offset + size - 1];
     letters += countLetters(word);
     if (endsSentence(word)) return size;
-    if (letters >= targetLetters) {
-      for (let next = size + 1; next <= remaining; next += 1) {
-        if (endsSentence(words[offset + next - 1])) return next;
-      }
-      return size;
-    }
+    if (letters >= targetLetters) return size;
   }
 
   return remaining;
@@ -50,7 +45,8 @@ function chooseSize(
 
 /**
  * Splits French prose into readable fragments of roughly the requested number
- * of letters. Each fragment is rounded up to the next complete sentence while
+ * of letters. Each fragment is rounded up to the next complete word, without
+ * crossing a sentence boundary, while
  * preserving punctuation. Whitespace is normalized and an empty input produces [].
  */
 export function splitTextIntoFragments(

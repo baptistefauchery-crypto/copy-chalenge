@@ -69,6 +69,9 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(dictaApp, /totalReviews < 3/);
   assert.match(dictaApp, /calculateScore/);
   assert.match(dictaApp, /LEADERBOARD_STORAGE_KEY/);
+  assert.match(dictaApp, /leaderboard\.slice\(0, 5\)/);
+  assert.doesNotMatch(dictaApp, /Chaque relecture aide à mieux connaître sa mémoire/);
+  assert.doesNotMatch(dictaApp, /Dictée terminée/);
   assert.match(dictaApp, /calibration-dictation/);
   assert.match(dictaApp, /J&apos;ai lu/);
   assert.doesNotMatch(dictaApp, /Regardez la caméra/);

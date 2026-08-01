@@ -536,7 +536,7 @@ export function DictaApp() {
               ))}
             </div>
           )}
-          <div className="hero"><div className="eyebrow">Dictée terminée</div><h1>Bravo, c’est terminé !</h1><p>Chaque relecture aide à mieux connaître sa mémoire.</p></div>
+          <div className="hero"><h1>Bravo, c’est terminé !</h1></div>
           <div className="card stage-card summary-card">
             <div className={`summary-score ${isNewBestScore ? "summary-score-record" : ""}`}>{summaryScore ?? 0}</div>
             <div className="muted">{isNewBestScore ? "Nouveau record !" : "score"}</div>
@@ -545,7 +545,7 @@ export function DictaApp() {
               {leaderboard.length === 0 ? (
                 <p className="leaderboard-empty">Ton score apparaîtra ici.</p>
               ) : (
-                leaderboard.map((entry, index) => {
+                leaderboard.slice(0, 5).map((entry, index) => {
                   const rank = index + 1;
                   const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
                   const isMedal = rank <= 3;
