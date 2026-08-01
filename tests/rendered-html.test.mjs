@@ -56,6 +56,7 @@ test("ships the Android PWA and local vision assets", async () => {
 
   const pwaProvider = await readFile(new URL("../app/components/pwa/PwaProvider.tsx", import.meta.url), "utf8");
   const dictaApp = await readFile(new URL("../app/DictaApp.tsx", import.meta.url), "utf8");
+  const globals = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(pwaProvider, /display-mode: standalone/);
   assert.match(pwaProvider, /Installer Copy Challenge sur ce téléphone/);
   assert.match(pwaProvider, /Installer\s+l’application/);
@@ -63,5 +64,8 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(pwaProvider, /display-mode: fullscreen/);
   assert.match(dictaApp, /AUTO_HIDE_GRACE_MS = 2000/);
   assert.match(dictaApp, /progressColor/);
+  assert.match(dictaApp, /Math\.pow\(progressRatio, 1\.65\)/);
   assert.match(dictaApp, /totalReviews < 3/);
+  assert.match(globals, /confetti-fall 4s/);
+  assert.match(globals, /summary-number-bounce/);
 });

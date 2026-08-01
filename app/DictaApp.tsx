@@ -28,6 +28,18 @@ const CONFETTI_PIECES = [
   { left: "77%", delay: "700ms", drift: "20px", rotate: "28deg", color: "#6654d9" },
   { left: "85%", delay: "300ms", drift: "-22px", rotate: "-18deg", color: "#58a37c" },
   { left: "93%", delay: "560ms", drift: "12px", rotate: "10deg", color: "#f3b34f" },
+  { left: "9%", delay: "860ms", drift: "30px", rotate: "-26deg", color: "#6654d9" },
+  { left: "17%", delay: "1040ms", drift: "-20px", rotate: "16deg", color: "#ef765f" },
+  { left: "25%", delay: "760ms", drift: "14px", rotate: "-10deg", color: "#f3b34f" },
+  { left: "33%", delay: "920ms", drift: "-28px", rotate: "22deg", color: "#58a37c" },
+  { left: "41%", delay: "1180ms", drift: "24px", rotate: "-18deg", color: "#ef765f" },
+  { left: "49%", delay: "820ms", drift: "-16px", rotate: "8deg", color: "#6654d9" },
+  { left: "57%", delay: "980ms", drift: "26px", rotate: "-24deg", color: "#f3b34f" },
+  { left: "65%", delay: "1120ms", drift: "-20px", rotate: "14deg", color: "#58a37c" },
+  { left: "73%", delay: "780ms", drift: "18px", rotate: "-8deg", color: "#ef765f" },
+  { left: "81%", delay: "1060ms", drift: "-26px", rotate: "26deg", color: "#6654d9" },
+  { left: "89%", delay: "900ms", drift: "16px", rotate: "-14deg", color: "#58a37c" },
+  { left: "97%", delay: "1200ms", drift: "-12px", rotate: "18deg", color: "#f3b34f" },
 ] as const;
 
 const INITIAL_LEVEL: PrimaryLevel = "CP";
@@ -299,7 +311,7 @@ export function DictaApp() {
   };
   const progressRatio = fragments.length > 0 ? (fragmentIndex + 1) / fragments.length : 0;
   const progressPercent = Math.round(progressRatio * 100);
-  const progressColor = `hsl(${Math.round(8 + progressRatio * 132)} 70% 55%)`;
+  const progressColor = `hsl(${Math.round(120 * Math.pow(progressRatio, 1.65))} 72% 52%)`;
 
   return (
     <main className="app-shell">

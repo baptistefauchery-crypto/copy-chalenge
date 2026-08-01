@@ -150,9 +150,17 @@ button { touch-action: manipulation; }
 .confetti-piece {
   position: absolute; top: -18px; left: var(--confetti-left); width: 9px; height: 14px;
   border-radius: 3px; background: var(--confetti-color); opacity: 0;
-  animation: confetti-fall 2.8s var(--confetti-delay) ease-out both;
+  animation: confetti-fall 4s var(--confetti-delay) ease-out both;
 }
 .summary-card > :not(.confetti-field) { position: relative; z-index: 1; }
+@keyframes summary-number-bounce {
+  0% { opacity: 0; transform: scale(.82); }
+  48% { opacity: 1; transform: scale(1.1); }
+  66% { transform: scale(.95); }
+  82% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+.summary-number { transform-origin: center; animation: summary-number-bounce 1.2s cubic-bezier(.2, .85, .35, 1.2) both; }
 @keyframes confetti-fall {
   0% { opacity: 0; transform: translate3d(0, -18px, 0) rotate(var(--confetti-rotate)); }
   12% { opacity: 1; }
@@ -160,6 +168,7 @@ button { touch-action: manipulation; }
 }
 @media (prefers-reduced-motion: reduce) {
   .confetti-piece { animation: none; opacity: .9; transform: translateY(80px) rotate(var(--confetti-rotate)); }
+  .summary-number { animation: none; }
 }
 
 .placement-shell { padding-top: 0; min-height: 0; }
