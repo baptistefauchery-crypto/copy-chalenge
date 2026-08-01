@@ -304,9 +304,9 @@ export function DictaApp() {
       )}
 
       {screen === "calibration-screen" && (
-        <section className="session-shell">
+        <section className="session-shell calibration-shell">
           <div className="hero"><div className="eyebrow">Calibration · 1 sur 2</div><h1>Regarde le point.</h1><p>Garde la tête tranquille et regarde le centre de l’écran pendant quelques secondes.</p></div>
-          <div className="card stage-card">
+          <div className="card stage-card calibration-card">
             <div className="summary-number">●</div>
             <p className="stage-help calibration-help">
               {calibrationPhase === "preparing" ? "Regarde le point. La mesure va commencer dans un instant." : calibrationPhase === "measuring" ? "Garde les yeux sur le point encore un instant." : "La mesure est terminée."}

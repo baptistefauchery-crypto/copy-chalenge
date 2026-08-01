@@ -105,6 +105,8 @@ button { touch-action: manipulation; }
 .progress-bar { height: 100%; border-radius: inherit; background: var(--coral); transition: width .35s ease; }
 
 .stage-card { position: relative; flex: 1; min-height: 440px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 34px 24px; overflow: hidden; }
+.calibration-card { justify-content: flex-start; padding-top: 72px; }
+.calibration-card .summary-number { margin-top: 0; }
 .stage-card::before { content: ""; position: absolute; inset: 18px; border: 1px dashed rgba(102,84,217,.18); border-radius: 21px; pointer-events: none; }
 .status-pill { position: absolute; top: 32px; display: inline-flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 99px; background: var(--mint); color: #276348; font-size: 12px; font-weight: 800; }
 .status-pill[data-tone="writing"] { background: #f9dfd8; color: #94412f; }
