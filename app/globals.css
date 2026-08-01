@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #f7e3ca;
+  --paper: #f2c8a7;
   --paper-strong: #fffaf2;
   --ink: #25233b;
   --muted: #716d7e;
@@ -25,10 +25,10 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 8% 4%, rgba(239, 118, 95, 0.31), transparent 34%),
-    radial-gradient(circle at 96% 12%, rgba(102, 84, 217, 0.27), transparent 32%),
-    radial-gradient(circle at 50% 108%, rgba(88, 163, 124, 0.20), transparent 42%),
-    var(--paper);
+    radial-gradient(circle at 8% 4%, rgba(239, 83, 62, 0.48), transparent 34%),
+    radial-gradient(circle at 96% 12%, rgba(91, 65, 207, 0.42), transparent 32%),
+    radial-gradient(circle at 50% 108%, rgba(43, 158, 112, 0.32), transparent 42%),
+    linear-gradient(135deg, #f4c29f 0%, #f0d0b8 46%, #d7cbea 100%);
   color: var(--ink);
   font-family: Inter, ui-rounded, "Avenir Next", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
