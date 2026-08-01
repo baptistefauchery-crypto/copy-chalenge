@@ -82,6 +82,16 @@ button { touch-action: manipulation; }
   padding: 16px; color: var(--ink); background: white; line-height: 1.5; outline: none;
 }
 .text-input:focus { border-color: var(--violet); box-shadow: 0 0 0 4px rgba(102,84,217,.11); }
+.level-select {
+  width: 100%; min-height: 56px; border-radius: 18px; border: 1px solid var(--line);
+  padding: 0 16px; color: var(--ink); background: white; outline: none; font-weight: 750;
+}
+.level-select:focus { border-color: var(--violet); box-shadow: 0 0 0 4px rgba(102,84,217,.11); }
+.dictation-meta {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
+  margin-top: 10px; color: var(--muted); font-size: 12px; line-height: 1.4;
+}
+.dictation-meta strong { color: var(--violet-dark); }
 .settings-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 16px 0 2px; }
 .stepper { display: flex; align-items: center; gap: 5px; background: var(--violet-soft); border-radius: 15px; padding: 4px; }
 .stepper button { width: 36px; height: 36px; border: 0; background: transparent; color: var(--violet-dark); font-size: 20px; border-radius: 11px; }

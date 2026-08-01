@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   countLetters,
   createSession,
+  getDictation,
+  PRIMARY_LEVELS,
   splitTextIntoFragments,
   totalReviews,
   transitionSession,
@@ -17,6 +19,20 @@ const exercise: Exercise = {
   fragments: ["Le chat dort.", "Puis il se réveille doucement."],
   createdAt: "2026-08-01T09:00:00.000Z",
 };
+
+test("offers three deterministic dictations for every primary class", () => {
+  assert.deepEqual(PRIMARY_LEVELS.map((level) => level.id), ["CP", "CE1", "CE2", "CM1", "CM2"]);
+
+  for (const level of PRIMARY_LEVELS) {
+    assert.ok(level.dictations.length >= 3);
+    const first = getDictation(level.id, 0);
+    const second = getDictation(level.id, 1);
+    const afterCycle = getDictation(level.id, level.dictations.length);
+    assert.notEqual(first.text, second.text);
+    assert.equal(afterCycle.index, 0);
+    assert.equal(afterCycle.text, first.text);
+  }
+});
 
 test("splits French text without losing words or punctuation", () => {
   const source = "Le petit chat dort. Puis il se réveille, et regarde dehors.";

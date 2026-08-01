@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { splitTextIntoFragments } from "./lib/domain";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { getDictation, getLevel, PRIMARY_LEVELS, splitTextIntoFragments, type PrimaryLevel } from "./lib/domain";
 import {
   MediaPipeAttentionDetector,
   type AttentionDetector,
@@ -12,14 +12,25 @@ type Screen = "setup" | "placement" | "calibration-screen" | "session" | "summar
 type SessionPhase = "memorizing" | "decision";
 type CalibrationPhase = "preparing" | "measuring" | "ready" | "failed";
 
-const DEMO_TEXT = "Le petit renard traverse le jardin. Il s’arrête près des fleurs, puis écoute le vent dans les arbres.";
 const CALIBRATION_PREPARATION_MS = 800;
 const CALIBRATION_MEASUREMENT_MS = 1500;
 
+const INITIAL_LEVEL: PrimaryLevel = "CP";
+const INITIAL_DICTATION = getDictation(INITIAL_LEVEL, 0);
+const INITIAL_CURSORS: Record<PrimaryLevel, number> = {
+  CP: 1,
+  CE1: 0,
+  CE2: 0,
+  CM1: 0,
+  CM2: 0,
+};
+
 export function DictaApp() {
   const [screen, setScreen] = useState<Screen>("setup");
-  const [text, setText] = useState(DEMO_TEXT);
-  const [lettersPerFragment, setLettersPerFragment] = useState(30);
+  const [selectedLevel, setSelectedLevel] = useState<PrimaryLevel>(INITIAL_LEVEL);
+  const [selectedDictation, setSelectedDictation] = useState(INITIAL_DICTATION);
+  const [text, setText] = useState(INITIAL_DICTATION.text);
+  const [lettersPerFragment, setLettersPerFragment] = useState(getLevel(INITIAL_LEVEL).recommendedLetters);
   const [cameraMode, setCameraMode] = useState<"camera" | "manual">("camera");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
@@ -38,6 +49,7 @@ export function DictaApp() {
   const phaseRef = useRef(phase);
   const cameraModeRef = useRef(cameraMode);
   const lastCameraReadingAtRef = useRef(0);
+  const dictationCursorsRef = useRef(INITIAL_CURSORS);
 
   useEffect(() => {
     screenRef.current = screen;
@@ -50,6 +62,16 @@ export function DictaApp() {
   }), [lettersPerFragment, text]);
   const totalReviews = reviewCounts.reduce((sum, value) => sum + value, 0);
   const keepCameraMounted = cameraMode === "camera" && screen !== "setup" && screen !== "summary";
+
+  const selectLevel = (event: ChangeEvent<HTMLSelectElement>) => {
+    const level = event.target.value as PrimaryLevel;
+    const nextDictation = getDictation(level, dictationCursorsRef.current[level]);
+    dictationCursorsRef.current[level] = (nextDictation.index + 1) % nextDictation.total;
+    setSelectedLevel(level);
+    setSelectedDictation(nextDictation);
+    setText(nextDictation.text);
+    setLettersPerFragment(getLevel(level).recommendedLetters);
+  };
 
   useEffect(() => {
     if (!toast) return;
@@ -248,8 +270,14 @@ export function DictaApp() {
             <p>Quelques mots apparaissent, puis disparaissent quand les yeux se tournent vers le cahier.</p>
           </section>
           <section className="card setup-card">
-            <label className="field-label" htmlFor="dictation">Texte de la dictée <span>{text.trim().split(/\s+/).filter(Boolean).length} mots</span></label>
-            <textarea id="dictation" className="text-input" value={text} onChange={(event) => setText(event.target.value)} />
+            <label className="field-label" htmlFor="level-select">Niveau de la classe <span>{selectedDictation.index + 1} / {selectedDictation.total}</span></label>
+            <select id="level-select" className="level-select" value={selectedLevel} onChange={selectLevel}>
+              {PRIMARY_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}
+            </select>
+            <div className="dictation-meta">
+              <strong>Dictée {selectedDictation.index + 1} sur {selectedDictation.total}</strong>
+              <span>{getLevel(selectedLevel).cycle} · {text.trim().split(/\s+/).filter(Boolean).length} mots</span>
+            </div>
             <div className="settings-row">
               <div><strong>Lettres par étape</strong><div className="muted">Arrondi au mot supérieur · Environ {fragments.length} fragments</div></div>
               <div className="stepper">
