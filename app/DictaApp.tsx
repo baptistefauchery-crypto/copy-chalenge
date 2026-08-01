@@ -8,7 +8,7 @@ import {
   type AttentionState,
 } from "./lib/vision";
 
-type Screen = "setup" | "placement" | "calibration-screen" | "calibration-notebook" | "session" | "summary";
+type Screen = "setup" | "placement" | "calibration-screen" | "calibration-notebook" | "dictation-ready" | "session" | "summary";
 type SessionPhase = "memorizing" | "writing" | "decision";
 type CalibrationPhase = "preparing" | "measuring" | "ready";
 
@@ -321,14 +321,25 @@ export function DictaApp() {
       {screen === "calibration-notebook" && (
         <section className="session-shell">
           <div className="hero"><div className="eyebrow">Calibration · 2 sur 2</div><h1>Regarde ton cahier.</h1><p>Baisse les yeux vers l’endroit où tu vas écrire, sans déplacer le téléphone.</p></div>
-          <div className="card stage-card">
+          <div className="card stage-card calibration-card">
             <div className="summary-number">↓</div>
             <p className="stage-help calibration-help">
               {calibrationPhase === "preparing" ? "Baisse les yeux maintenant. La mesure commencera dans quelques secondes." : calibrationPhase === "measuring" ? "Garde les yeux sur ton cahier encore un instant." : "La mesure est terminée."}
             </p>
-            <button className="primary-button" disabled={calibrationPhase !== "ready"} onClick={() => { if (runCalibrationStep("session")) startSession(); }}>
-              {calibrationPhase === "ready" ? "Commencer la dictée" : calibrationPhase === "preparing" ? "Prépare-toi…" : "Mesure en cours…"}
+            <button className="primary-button" disabled={calibrationPhase !== "ready"} onClick={() => runCalibrationStep("dictation-ready")}>
+              {calibrationPhase === "ready" ? "Terminer la calibration" : calibrationPhase === "preparing" ? "Prépare-toi…" : "Mesure en cours…"}
             </button>
+          </div>
+        </section>
+      )}
+
+      {screen === "dictation-ready" && (
+        <section className="session-shell ready-shell">
+          <div className="hero"><div className="eyebrow">Calibration terminée</div><h1>Tout est prêt.</h1><p>Ton regard est bien calibré. Tu peux maintenant passer à la première étape de la dictée.</p></div>
+          <div className="card stage-card ready-card">
+            <div className="summary-number">✓</div>
+            <p className="stage-help ready-help">Les mots vont apparaître à l’écran. Mémorise-les, puis regarde ton cahier pour les écrire.</p>
+            <button className="primary-button" onClick={startSession}>Commencer la dictée</button>
           </div>
         </section>
       )}
