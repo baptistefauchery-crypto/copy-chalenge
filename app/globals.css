@@ -232,31 +232,6 @@ button { touch-action: manipulation; }
 .summary-stat { padding: 18px; border-radius: 20px; background: white; border: 1px solid var(--line); }
 .summary-stat strong { display: block; font-size: 27px; }.summary-stat span { font-size: 12px; color: var(--muted); }
 
-.calibration-success {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: grid;
-  place-content: center;
-  gap: 14px;
-  background: #70dda3;
-  color: #173d2b;
-  font-size: clamp(22px, 6vw, 32px);
-  font-weight: 850;
-  text-align: center;
-  pointer-events: none;
-}
-.calibration-success-mark {
-  width: 70px;
-  height: 70px;
-  margin: 0 auto;
-  display: grid;
-  place-items: center;
-  border: 3px solid currentColor;
-  border-radius: 50%;
-  font-size: 42px;
-  line-height: 1;
-}
 .toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(90vw, 440px); padding: 13px 16px; border-radius: 16px; background: var(--ink); color: white; font-size: 13px; text-align: center; box-shadow: 0 14px 38px rgba(0,0,0,.18); z-index: 20; }
 
 @media (max-width: 430px) {

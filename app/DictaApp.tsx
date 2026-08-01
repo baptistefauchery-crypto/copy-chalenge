@@ -31,7 +31,6 @@ export function DictaApp() {
   const [fragmentIndex, setFragmentIndex] = useState(0);
   const [reviewCounts, setReviewCounts] = useState<number[]>([]);
   const [toast, setToast] = useState<string | null>(null);
-  const [calibrationSuccess, setCalibrationSuccess] = useState(false);
   const detectorRef = useRef<AttentionDetector | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -174,7 +173,6 @@ export function DictaApp() {
     if (cameraMode !== "camera" || !detectorRef.current) return;
     if (screen !== "calibration-screen") return;
     let measurementTimer: number | undefined;
-    let transitionTimer: number | undefined;
     const finishMeasurement = () => {
       try {
         // Stop collecting at the exact end of the measurement. Previously this
@@ -182,15 +180,11 @@ export function DictaApp() {
         // the movements made between calibration steps.
         detectorRef.current?.finishCalibration("screen");
         setCalibrationPhase("ready");
-        setCalibrationSuccess(true);
         playCalibrationBeep();
-        transitionTimer = window.setTimeout(() => {
-          setCalibrationSuccess(false);
-          setFragmentIndex(0);
-          setReviewCounts(Array(fragments.length).fill(0));
-          setPhase("memorizing");
-          setScreen("session");
-        }, 450);
+        setFragmentIndex(0);
+        setReviewCounts(Array(fragments.length).fill(0));
+        setPhase("memorizing");
+        setScreen("session");
       } catch {
         setCalibrationPhase("failed");
         setToast("Je n’ai pas assez vu ton visage. Replace-toi puis réessaie.");
@@ -203,7 +197,6 @@ export function DictaApp() {
     return () => {
       window.clearTimeout(preparationTimer);
       if (measurementTimer !== undefined) window.clearTimeout(measurementTimer);
-      if (transitionTimer !== undefined) window.clearTimeout(transitionTimer);
     };
   }, [calibrationAttempt, cameraMode, fragments.length, playCalibrationBeep, screen]);
 
@@ -372,12 +365,6 @@ export function DictaApp() {
         </section>
       )}
 
-      {calibrationSuccess && (
-        <div className="calibration-success" role="status" aria-live="assertive">
-          <span className="calibration-success-mark" aria-hidden="true">✓</span>
-          <span>Tu peux relever les yeux</span>
-        </div>
-      )}
       {toast && <div className="toast" role="status">{toast}</div>}
     </main>
   );
