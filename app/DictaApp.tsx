@@ -14,6 +14,7 @@ type CalibrationPhase = "preparing" | "measuring" | "ready" | "failed";
 
 const CALIBRATION_PREPARATION_MS = 2000;
 const CALIBRATION_MEASUREMENT_MS = 1500;
+const AUTO_HIDE_GRACE_MS = 1000;
 
 const INITIAL_LEVEL: PrimaryLevel = "CP";
 const INITIAL_DICTATION = getDictation(INITIAL_LEVEL, 0);
@@ -24,7 +25,7 @@ const INITIAL_CURSORS: Record<PrimaryLevel, number> = {
   CM1: 0,
   CM2: 0,
 };
-const CURRENT_LEVEL_OPTION = "__current_level__";
+const NEXT_DICTATION_OPTION = "__next_dictation__";
 
 export function DictaApp() {
   const [screen, setScreen] = useState<Screen>("setup");
@@ -50,6 +51,7 @@ export function DictaApp() {
   const phaseRef = useRef(phase);
   const cameraModeRef = useRef(cameraMode);
   const lastCameraReadingAtRef = useRef(0);
+  const autoHideBlockedUntilRef = useRef(0);
   const dictationCursorsRef = useRef<Record<PrimaryLevel, number>>({ ...INITIAL_CURSORS });
 
   useEffect(() => {
@@ -74,8 +76,15 @@ export function DictaApp() {
   };
 
   const selectLevel = (event: ChangeEvent<HTMLSelectElement>) => {
-    if (event.target.value === CURRENT_LEVEL_OPTION) return;
+    if (event.target.value === NEXT_DICTATION_OPTION) {
+      chooseNextDictation(selectedLevel);
+      return;
+    }
     chooseNextDictation(event.target.value as PrimaryLevel);
+  };
+
+  const startAutoHideGracePeriod = () => {
+    autoHideBlockedUntilRef.current = Date.now() + AUTO_HIDE_GRACE_MS;
   };
 
   const setLetterTarget = (value: number) => {
@@ -164,7 +173,7 @@ export function DictaApp() {
       // Missing face is published as "notebook" by the detector. Never gate
       // this transition on a previous screen reading: leaving the frame must
       // hide the text immediately.
-      if (phaseRef.current === "memorizing" && (!reading.faceDetected || reading.state === "notebook")) setPhase("decision");
+      if (phaseRef.current === "memorizing" && Date.now() >= autoHideBlockedUntilRef.current && (!reading.faceDetected || reading.state === "notebook")) setPhase("decision");
     });
 
     const openCamera = async () => {
@@ -193,7 +202,7 @@ export function DictaApp() {
     const watchdog = window.setInterval(() => {
       // If MediaPipe or the video loop stops answering, fail closed instead of
       // preserving the last optimistic "screen" state forever.
-      if (Date.now() - lastCameraReadingAtRef.current > 1200) setPhase("decision");
+      if (Date.now() >= autoHideBlockedUntilRef.current && Date.now() - lastCameraReadingAtRef.current > 1200) setPhase("decision");
     }, 250);
     return () => window.clearInterval(watchdog);
   }, [cameraMode, phase, screen]);
@@ -212,6 +221,7 @@ export function DictaApp() {
         playCalibrationBeep();
         setFragmentIndex(0);
         setReviewCounts(Array(fragments.length).fill(0));
+        startAutoHideGracePeriod();
         setPhase("memorizing");
         setScreen("session");
       } catch {
@@ -238,12 +248,14 @@ export function DictaApp() {
     setPhase("memorizing");
     setFragmentIndex(0);
     setReviewCounts(Array(fragments.length).fill(0));
+    startAutoHideGracePeriod();
   };
 
   const hideFragment = () => setPhase("decision");
 
   const review = () => {
     setReviewCounts((counts) => counts.map((count, index) => index === fragmentIndex ? count + 1 : count));
+    startAutoHideGracePeriod();
     setPhase("memorizing");
   };
 
@@ -254,6 +266,7 @@ export function DictaApp() {
       return;
     }
     setFragmentIndex((value) => value + 1);
+    startAutoHideGracePeriod();
     setPhase("memorizing");
   };
 
@@ -285,9 +298,9 @@ export function DictaApp() {
               <label className="field-label" htmlFor="level-select">Niveau de classe</label>
               <span className="dictation-counter">Dictée {selectedDictation.index + 1} / {selectedDictation.total}</span>
             </div>
-            <select id="level-select" className="level-select" value={CURRENT_LEVEL_OPTION} onChange={selectLevel}>
-              <option value={CURRENT_LEVEL_OPTION}>{getLevel(selectedLevel).label} · niveau actuel</option>
-              {PRIMARY_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}{level.id === selectedLevel ? " · dictée suivante" : ""}</option>)}
+            <select id="level-select" className="level-select" value={selectedLevel} onChange={selectLevel}>
+              {PRIMARY_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}
+              <option value={NEXT_DICTATION_OPTION}>Dictée suivante</option>
             </select>
             <div className="dictation-meta">
               <strong>{getLevel(selectedLevel).label}</strong>
