@@ -17,10 +17,23 @@ export function PwaProvider() {
     useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
+    let removeServiceWorkerListener: (() => void) | undefined;
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
-        // The application remains usable online if registration is unavailable.
-      });
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      let reloading = false;
+      const reloadOnUpdate = () => {
+        if (!hadController || reloading) return;
+        reloading = true;
+        window.location.reload();
+      };
+      navigator.serviceWorker.addEventListener("controllerchange", reloadOnUpdate);
+      navigator.serviceWorker
+        .register("/sw.js", { scope: "/", updateViaCache: "none" })
+        .then((registration) => registration.update())
+        .catch(() => {
+          // The application remains usable online if registration is unavailable.
+        });
+      removeServiceWorkerListener = () => navigator.serviceWorker.removeEventListener("controllerchange", reloadOnUpdate);
     }
 
     const captureInstallPrompt = (event: Event) => {
@@ -34,6 +47,7 @@ export function PwaProvider() {
     window.addEventListener("beforeinstallprompt", captureInstallPrompt);
     window.addEventListener("appinstalled", confirmInstallation);
     return () => {
+      removeServiceWorkerListener?.();
       window.removeEventListener("beforeinstallprompt", captureInstallPrompt);
       window.removeEventListener("appinstalled", confirmInstallation);
     };

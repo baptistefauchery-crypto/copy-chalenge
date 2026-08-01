@@ -38,6 +38,7 @@ export function DictaApp() {
   const screenRef = useRef(screen);
   const phaseRef = useRef(phase);
   const cameraModeRef = useRef(cameraMode);
+  const lastCameraReadingAtRef = useRef(0);
 
   useEffect(() => {
     screenRef.current = screen;
@@ -126,13 +127,14 @@ export function DictaApp() {
     });
     detectorRef.current = detector;
     detector.subscribe((reading) => {
+      lastCameraReadingAtRef.current = Date.now();
       setAttention(reading.state);
       setFaceDetected(reading.faceDetected);
       if (screenRef.current !== "session" || cameraModeRef.current !== "camera") return;
       // Missing face is published as "notebook" by the detector. Never gate
       // this transition on a previous screen reading: leaving the frame must
       // hide the text immediately.
-      if (phaseRef.current === "memorizing" && reading.state === "notebook") setPhase("writing");
+      if (phaseRef.current === "memorizing" && (!reading.faceDetected || reading.state === "notebook")) setPhase("writing");
       if (phaseRef.current === "writing" && reading.state === "screen") setPhase("decision");
     });
 
@@ -156,6 +158,16 @@ export function DictaApp() {
     void openCamera();
     return () => { cancelled = true; };
   }, [cameraLoading, screen]);
+
+  useEffect(() => {
+    if (screen !== "session" || cameraMode !== "camera" || phase !== "memorizing") return;
+    const watchdog = window.setInterval(() => {
+      // If MediaPipe or the video loop stops answering, fail closed instead of
+      // preserving the last optimistic "screen" state forever.
+      if (Date.now() - lastCameraReadingAtRef.current > 1200) setPhase("writing");
+    }, 250);
+    return () => window.clearInterval(watchdog);
+  }, [cameraMode, phase, screen]);
 
   useEffect(() => {
     if (cameraMode !== "camera" || !detectorRef.current) return;
@@ -204,6 +216,7 @@ export function DictaApp() {
   };
 
   const startSession = () => {
+    lastCameraReadingAtRef.current = Date.now();
     setFragmentIndex(0);
     setReviewCounts(Array(fragments.length).fill(0));
     setPhase("memorizing");

@@ -24,6 +24,8 @@ export class MediaPipeAttentionDetector implements AttentionDetector {
   private landmarker: { detectForVideo(video: HTMLVideoElement, timestamp: number): { faceLandmarks?: FaceLandmark[][] }; close(): void } | null = null;
   private frameId: number | null = null;
   private lastAnalysis = 0;
+  private lastVideoTime = -1;
+  private lastVideoProgressAt = 0;
   private readonly listeners = new Set<DetectorListener>();
   private readonly samples: Record<"screen" | "notebook", AttentionFeatures[]> = { screen: [], notebook: [] };
   private calibrationParts: Partial<Record<"screen" | "notebook", CalibrationSample>> = {};
@@ -44,6 +46,8 @@ export class MediaPipeAttentionDetector implements AttentionDetector {
     this.video = video ?? document.createElement("video");
     this.video.muted = true;
     this.video.playsInline = true;
+    this.lastVideoTime = -1;
+    this.lastVideoProgressAt = 0;
 
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
@@ -84,6 +88,8 @@ export class MediaPipeAttentionDetector implements AttentionDetector {
     if (this.video) this.video.srcObject = null;
     this.video = null;
     this.collecting = null;
+    this.lastVideoTime = -1;
+    this.lastVideoProgressAt = 0;
     this.stabilizer.reset();
   }
 
@@ -122,15 +128,32 @@ export class MediaPipeAttentionDetector implements AttentionDetector {
     this.frameId = requestAnimationFrame(this.tick);
     const interval = 1000 / (this.options.analysisFps ?? 10);
     if (!this.landmarker || !this.video || timestamp - this.lastAnalysis < interval) return;
-    if (this.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+    if (this.video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      this.publishFaceMissing(timestamp);
+      return;
+    }
+    if (this.video.currentTime !== this.lastVideoTime) {
+      this.lastVideoTime = this.video.currentTime;
+      this.lastVideoProgressAt = timestamp;
+    } else if (timestamp - this.lastVideoProgressAt > 800) {
+      // A frozen camera frame must never leave visible text on screen.
+      this.publishFaceMissing(timestamp);
+      return;
+    }
     this.lastAnalysis = timestamp;
-    const result = this.landmarker.detectForVideo(this.video, timestamp);
+    let result: { faceLandmarks?: FaceLandmark[][] };
+    try {
+      result = this.landmarker.detectForVideo(this.video, timestamp);
+    } catch {
+      this.publishFaceMissing(timestamp);
+      return;
+    }
     const features = result.faceLandmarks?.[0]
       ? extractAttentionFeatures(result.faceLandmarks[0])
       : null;
 
     if (!features) {
-      this.publish({ state: this.stabilizer.loseFace(), confidence: 1, features: null, faceDetected: false, timestamp });
+      this.publishFaceMissing(timestamp);
       return;
     }
     if (this.collecting) this.samples[this.collecting].push(features);
@@ -146,5 +169,9 @@ export class MediaPipeAttentionDetector implements AttentionDetector {
   private publish(reading: AttentionReading) {
     this.reading = reading;
     this.listeners.forEach((listener) => listener(reading));
+  }
+
+  private publishFaceMissing(timestamp: number) {
+    this.publish({ state: this.stabilizer.loseFace(), confidence: 1, features: null, faceDetected: false, timestamp });
   }
 }

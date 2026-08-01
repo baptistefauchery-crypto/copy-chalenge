@@ -42,4 +42,7 @@ test("ships the Android PWA and local vision assets", async () => {
     access(new URL("../public/models/face_landmarker.task", import.meta.url)),
     access(new URL("../public/mediapipe/wasm/vision_wasm_internal.wasm", import.meta.url)),
   ]);
+
+  const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+  assert.match(serviceWorker, /CACHE_VERSION = "dicta-v3"/);
 });
