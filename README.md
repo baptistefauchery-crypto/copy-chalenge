@@ -1,40 +1,55 @@
 # Copy Challenge
 
-Prototype Android de dictée visuelle : l’élève mémorise quelques mots, regarde son cahier pour les écrire, puis choisit de revoir le fragment ou de continuer.
+Copy Challenge est une application web progressive (PWA) de challenge visuel.
+L’élève mémorise un fragment, regarde son cahier pour l’écrire, puis choisit de
+revoir les mots ou de continuer.
 
-## Fonctionnalités V1
+## Démo publiée
+
+[Ouvrir Copy Challenge](https://dicta-memoire.baptiste-fauchery.chatgpt.site)
+
+## Fonctionnement
+
+1. Choisir un niveau scolaire et le nombre de lettres par étape.
+2. Lire et mémoriser le fragment affiché.
+3. Regarder le cahier pour écrire le fragment.
+4. Choisir **Revoir** ou **Continuer**.
+5. Consulter le score et le bilan en fin de séance.
+
+La caméra et MediaPipe distinguent localement le regard vers l’écran du regard
+vers le cahier. Un mode manuel reste disponible si la caméra n’est pas utilisée.
+
+## Fonctionnalités
 
 - PWA installable sur Android depuis une URL ou un QR code
 - fonctionnement hors ligne après le premier chargement
+- niveaux CP, CE1, CE2, CM1 et CM2
 - découpage naturel d’un texte français en fragments
-- détection locale `écran / cahier` avec MediaPipe
-- réglage automatique sur une courte lecture à l'écran
-- masquage sécurisé lorsque le visage disparaît
+- calibration courte de la lecture à l’écran
+- masquage du fragment lorsque l’élève regarde son cahier
 - mode manuel de secours
-- bilan local des relectures
+- scores et relectures conservés localement
 - aucune vidéo enregistrée ou envoyée
 
-## Installer sur Android
+## Installation sur Android
 
-Ouvrir l’adresse publiée dans Chrome sur le téléphone, puis utiliser le bouton
-`Installer` proposé par Copy Challenge ou le menu `⋮` de Chrome → `Installer l’application`.
-L’application nécessite une connexion HTTPS pour l’installation et l’accès caméra.
+Ouvrir l’URL publiée dans Chrome sur le téléphone, puis utiliser le bouton
+`Installer` proposé par Copy Challenge ou le menu `⋮` de Chrome →
+`Installer l’application`.
 
-## Mises à jour
-
-Copy Challenge vérifie les nouvelles versions à l’ouverture, lorsque l’application revient
-au premier plan et périodiquement lorsqu’elle reste ouverte. Une notification
-`Mettre à jour` permet de recharger la nouvelle version sans interrompre une
-séance en cours.
+L’installation et l’accès à la caméra nécessitent une connexion HTTPS.
 
 ## Développement
+
+Prérequis : Node.js `>=22.13.0`.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Ouvrir ensuite `http://localhost:3000`. L’accès caméra sur un autre appareil nécessite une origine HTTPS.
+Ouvrir ensuite `http://localhost:3000`. L’accès caméra depuis un autre appareil
+nécessite une origine HTTPS.
 
 ## Vérification
 
@@ -43,4 +58,23 @@ npm test
 npm run lint
 ```
 
-Le modèle Face Landmarker et les fichiers WebAssembly MediaPipe sont servis depuis `public/` afin de rester disponibles hors connexion.
+La commande `npm test` compile l’application, exécute les tests métier et vision,
+puis vérifie le rendu HTML serveur.
+
+## Structure principale
+
+- `app/DictaApp.tsx` : interface et parcours d’une séance
+- `app/globals.css` : styles et responsive design
+- `app/lib/domain/` : découpage des textes, session, score et relectures
+- `app/lib/vision/` : calibration et détection locale du regard
+- `app/components/pwa/` : installation et état hors ligne
+- `public/` : icônes, modèle Face Landmarker et fichiers WebAssembly
+- `tests/` : tests métier, vision et rendu serveur
+- `.openai/hosting.json` : identifiant de publication Sites
+
+## Mises à jour
+
+Copy Challenge vérifie les nouvelles versions à l’ouverture, lorsque
+l’application revient au premier plan et périodiquement lorsqu’elle reste
+ouverte. Une notification `Mettre à jour` permet de recharger la nouvelle
+version sans interrompre une séance en cours.

@@ -40,7 +40,7 @@ test("offers three deterministic dictations for every primary class", () => {
 test("calculates a high score and applies the requested adjustments", () => {
   assert.equal(calculateScore("Un joli mot", 12000), calculateScore("Douze mots", 12000));
   assert.ok(calculateScore("Le chat dort", 30000) > 35);
-  assert.ok(calculateScore("Une dictée plus longue", 30000) > calculateScore("Un mot", 30000));
+  assert.ok(calculateScore("Un challenge plus long", 30000) > calculateScore("Un mot", 30000));
   assert.ok(calculateScore("Le chat dort", 30000, 1) < calculateScore("Le chat dort", 30000));
 });
 

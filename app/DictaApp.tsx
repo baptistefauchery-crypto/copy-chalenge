@@ -538,9 +538,9 @@ export function DictaApp() {
             <button className="help-close" type="button" aria-label="Fermer les informations" onClick={() => setIsHelpOpen(false)}>×</button>
           </div>
           <ol className="help-list">
-            <li><strong>Choisis ta classe</strong><span>Le niveau sélectionne une dictée adaptée. Le numéro de la dictée est indiqué à côté du niveau.</span></li>
-            <li><strong>Choisis les lettres par étape</strong><span>La dictée est découpée en petits groupes de mots, sans mélanger deux phrases.</span></li>
-            <li><strong>Lis toute la dictée</strong><span>Avec la caméra ou en mode manuel, lis le texte affiché puis appuie sur « J’ai lu ».</span></li>
+            <li><strong>Choisis ta classe</strong><span>Le niveau sélectionne un challenge adapté. Le numéro du challenge est indiqué à côté du niveau.</span></li>
+            <li><strong>Choisis les lettres par étape</strong><span>Le challenge est découpé en petits groupes de mots, sans mélanger deux phrases.</span></li>
+            <li><strong>Lis tout le challenge</strong><span>Avec la caméra ou en mode manuel, lis le texte affiché puis appuie sur « J’ai lu ».</span></li>
             <li><strong>Mémorise et écris</strong><span>Regarde le fragment, écris-le sur ton cahier, puis relève les yeux pour continuer.</span></li>
             <li><strong>Revois si nécessaire</strong><span>À chaque étape, choisis « Revoir » ou « Continuer ». Ton score et le classement s’affichent à la fin.</span></li>
           </ol>
@@ -551,7 +551,7 @@ export function DictaApp() {
         <img
           className="home-banner"
           src="/dicta-banner-tilted-notebook.png"
-          alt="Un œil, un cahier et un crayon illustrent la dictée de mémoire."
+          alt="Un œil, un cahier et un crayon illustrent le challenge de mémoire."
         />
       )}
 
@@ -560,11 +560,11 @@ export function DictaApp() {
           <section className="card setup-card">
             <div className="setup-heading">
               <label className="field-label" htmlFor="level-select">Niveau de classe</label>
-              <span className="dictation-counter">Dictée {selectedDictation.index + 1} / {selectedDictation.total}</span>
+              <span className="dictation-counter">Challenge {selectedDictation.index + 1} / {selectedDictation.total}</span>
             </div>
             <LevelPicker selectedLevel={selectedLevel} onSelect={selectLevel} />
             <div className="dictation-meta">
-              <span>Dictée {selectedDictation.index + 1} sur {selectedDictation.total} · {getLevel(selectedLevel).cycle} · {text.trim().split(/\s+/).filter(Boolean).length} mots</span>
+              <span>Challenge {selectedDictation.index + 1} sur {selectedDictation.total} · {getLevel(selectedLevel).cycle} · {text.trim().split(/\s+/).filter(Boolean).length} mots</span>
             </div>
             <div className="settings-row">
               <div><strong>Lettres par étape</strong></div>
@@ -584,7 +584,7 @@ export function DictaApp() {
                 <button aria-label="Augmenter le nombre de lettres" onClick={() => setLetterTarget(lettersPerFragment + 1)}>+</button>
               </div>
             </div>
-            <button className="primary-button" disabled={!text.trim() || cameraLoading} onClick={startCamera}>{cameraLoading ? "Préparation de la caméra…" : "Préparer la caméra"}</button>
+            <button className="primary-button" disabled={!text.trim() || cameraLoading} onClick={startCamera}>{cameraLoading ? "Préparation de la caméra…" : "Lancer un challenge."}</button>
             {cameraError && <p role="alert" className="muted">{cameraError}</p>}
             <button className="manual-hide" onClick={beginManual}>Continuer sans caméra</button>
           </section>
@@ -627,7 +627,7 @@ export function DictaApp() {
           <div className="card calibration-reading-card" data-phase={calibrationPhase}>
             {calibrationPhase === "failed" ? (
               <>
-                <div className="eyebrow">Lis la dictée</div>
+                <div className="eyebrow">Lis le challenge</div>
                 <div className="calibration-dictation">{text}</div>
                 <div className="calibration-reading-actions">
                   <p className="calibration-error" role="alert">Replace ton visage dans le champ de la caméra.</p>
@@ -636,10 +636,10 @@ export function DictaApp() {
               </>
             ) : (
               <>
-                <div className="eyebrow">Lis la dictée</div>
+                <div className="eyebrow">Lis le challenge</div>
                 <div className="calibration-dictation">{text}</div>
                 <div className="calibration-reading-actions">
-                  <p className="calibration-reading-help">Lis toute la dictée, puis appuie quand tu as terminé.</p>
+                  <p className="calibration-reading-help">Lis tout le challenge, puis appuie quand tu as terminé.</p>
                   <button className="primary-button" onClick={confirmCalibrationRead}>J&apos;ai lu</button>
                 </div>
               </>
@@ -729,7 +729,7 @@ export function DictaApp() {
             <div className="summary-grid summary-grid-single">
               <div className="summary-stat"><strong>{totalReviews}</strong><span>relecture</span></div>
             </div>
-            <button className="primary-button" onClick={prepareNextDictation}>Préparer la dictée suivante</button>
+            <button className="primary-button" onClick={prepareNextDictation}>Préparer le challenge suivant</button>
           </div>
         </section>
       )}

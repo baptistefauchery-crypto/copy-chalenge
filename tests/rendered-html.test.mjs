@@ -25,10 +25,9 @@ test("server-renders the Copy Challenge setup experience", async () => {
   assert.match(html, /src="\/icons\/icon-192\.png"/);
   assert.match(html, /Niveau de classe/);
   assert.match(html, /level-picker/);
-  assert.doesNotMatch(html, /Dictée suivante/);
+  assert.match(html, /Lancer un challenge\./);
   assert.doesNotMatch(html, /Je regarde\./);
   assert.match(html, /dicta-banner-tilted-notebook\.png/);
-  assert.match(html, /Préparer la caméra/);
   assert.match(html, /Continuer sans caméra/);
   assert.match(html, /manifest\.webmanifest/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
@@ -78,7 +77,7 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.doesNotMatch(dictaApp, /NEXT_DICTATION_OPTION/);
   assert.match(dictaApp, /cameraMode === "manual" \|\| calibrationPhase === "ready"/);
   assert.doesNotMatch(dictaApp, /Chaque relecture aide à mieux connaître sa mémoire/);
-  assert.doesNotMatch(dictaApp, /Dictée terminée/);
+  assert.doesNotMatch(dictaApp, /Challenge terminé/);
   assert.doesNotMatch(dictaApp, /fragments revus/);
   assert.match(dictaApp, /<span>relecture<\/span>/);
   assert.match(dictaApp, /calibration-dictation/);

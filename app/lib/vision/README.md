@@ -1,6 +1,6 @@
 # Moteur d'attention
 
-Le module expose `MediaPipeAttentionDetector`, sans dépendance avec l'interface de la dictée.
+Le module expose `MediaPipeAttentionDetector`, sans dépendance avec l'interface du challenge.
 Il fonctionne uniquement dans le navigateur et ne transmet ni ne conserve aucune image.
 
 ## Cycle de vie

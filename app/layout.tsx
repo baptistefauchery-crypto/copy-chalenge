@@ -17,9 +17,9 @@ export async function generateMetadata(): Promise<Metadata> {
     appleWebApp: { capable: true, statusBarStyle: "default", title: "Copy Challenge" },
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: {
-      title: "Copy Challenge — Dictée de mémoire",
-      description: "Une dictée visuelle qui masque les mots quand l’élève regarde son cahier.",
-      images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "Copy Challenge, dictée de mémoire" }],
+      title: "Copy Challenge — Challenge de mémoire",
+      description: "Un challenge visuel qui masque les mots quand l’élève regarde son cahier.",
+      images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "Copy Challenge, challenge de mémoire" }],
       locale: "fr_FR",
       type: "website",
     },
