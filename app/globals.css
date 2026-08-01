@@ -75,7 +75,10 @@ button { touch-action: manipulation; }
 }
 
 .setup-card { padding: 22px; }
+.setup-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.setup-heading .field-label { margin-bottom: 0; }
 .field-label { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 10px; font-weight: 800; }
+.dictation-counter { flex: 0 0 auto; padding: 7px 10px; border-radius: 999px; background: var(--violet-soft); color: var(--violet-dark); font-size: 13px; font-weight: 850; white-space: nowrap; }
 .field-label span { font-size: 12px; font-weight: 650; color: var(--muted); }
 .text-input {
   width: 100%; min-height: 142px; resize: vertical; border-radius: 18px; border: 1px solid var(--line);

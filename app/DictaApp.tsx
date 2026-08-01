@@ -24,6 +24,7 @@ const INITIAL_CURSORS: Record<PrimaryLevel, number> = {
   CM1: 0,
   CM2: 0,
 };
+const CURRENT_LEVEL_OPTION = "__current_level__";
 
 export function DictaApp() {
   const [screen, setScreen] = useState<Screen>("setup");
@@ -49,7 +50,7 @@ export function DictaApp() {
   const phaseRef = useRef(phase);
   const cameraModeRef = useRef(cameraMode);
   const lastCameraReadingAtRef = useRef(0);
-  const dictationCursorsRef = useRef(INITIAL_CURSORS);
+  const dictationCursorsRef = useRef<Record<PrimaryLevel, number>>({ ...INITIAL_CURSORS });
 
   useEffect(() => {
     screenRef.current = screen;
@@ -63,14 +64,18 @@ export function DictaApp() {
   const totalReviews = reviewCounts.reduce((sum, value) => sum + value, 0);
   const keepCameraMounted = cameraMode === "camera" && screen !== "setup" && screen !== "summary";
 
-  const selectLevel = (event: ChangeEvent<HTMLSelectElement>) => {
-    const level = event.target.value as PrimaryLevel;
+  const chooseNextDictation = (level: PrimaryLevel) => {
     const nextDictation = getDictation(level, dictationCursorsRef.current[level]);
     dictationCursorsRef.current[level] = (nextDictation.index + 1) % nextDictation.total;
     setSelectedLevel(level);
     setSelectedDictation(nextDictation);
     setText(nextDictation.text);
     setLettersPerFragment(getLevel(level).recommendedLetters);
+  };
+
+  const selectLevel = (event: ChangeEvent<HTMLSelectElement>) => {
+    if (event.target.value === CURRENT_LEVEL_OPTION) return;
+    chooseNextDictation(event.target.value as PrimaryLevel);
   };
 
   const setLetterTarget = (value: number) => {
@@ -258,6 +263,12 @@ export function DictaApp() {
     setScreen("setup");
     setPhase("memorizing");
     setFragmentIndex(0);
+    setReviewCounts([]);
+  };
+
+  const prepareNextDictation = () => {
+    chooseNextDictation(selectedLevel);
+    reset();
   };
 
   return (
@@ -269,16 +280,14 @@ export function DictaApp() {
 
       {screen === "setup" && (
         <>
-          <section className="hero">
-            <div className="eyebrow">Dictée de mémoire</div>
-            <h1>Je regarde.<br />J’écris. <em>Je retiens.</em></h1>
-            <p>Quelques mots apparaissent, puis disparaissent quand les yeux se tournent vers le cahier.</p>
-          </section>
           <section className="card setup-card">
-            <label className="field-label" htmlFor="level-select">Choisir le niveau <span>{selectedDictation.index + 1} / {selectedDictation.total}</span></label>
-            <select id="level-select" className="level-select" value="" onChange={selectLevel}>
-              <option value="" disabled>Choisir une classe…</option>
-              {PRIMARY_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}
+            <div className="setup-heading">
+              <label className="field-label" htmlFor="level-select">Niveau de classe</label>
+              <span className="dictation-counter">Dictée {selectedDictation.index + 1} / {selectedDictation.total}</span>
+            </div>
+            <select id="level-select" className="level-select" value={CURRENT_LEVEL_OPTION} onChange={selectLevel}>
+              <option value={CURRENT_LEVEL_OPTION}>{getLevel(selectedLevel).label} · niveau actuel</option>
+              {PRIMARY_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}{level.id === selectedLevel ? " · dictée suivante" : ""}</option>)}
             </select>
             <div className="dictation-meta">
               <strong>{getLevel(selectedLevel).label}</strong>
@@ -395,7 +404,7 @@ export function DictaApp() {
               <div className="summary-stat"><strong>{totalReviews}</strong><span>relectures</span></div>
               <div className="summary-stat"><strong>{reviewCounts.filter(Boolean).length}</strong><span>fragments revus</span></div>
             </div>
-            <button className="primary-button" onClick={reset}>Préparer une autre dictée</button>
+            <button className="primary-button" onClick={prepareNextDictation}>Préparer la dictée suivante</button>
           </div>
         </section>
       )}

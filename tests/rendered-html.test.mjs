@@ -22,7 +22,8 @@ test("server-renders the Dicta setup experience", async () => {
   const html = await response.text();
   assert.match(html, /<html lang="fr">/);
   assert.match(html, /<title>Dicta/);
-  assert.match(html, /Je regarde\./);
+  assert.match(html, /Niveau de classe/);
+  assert.doesNotMatch(html, /Je regarde\./);
   assert.match(html, /Préparer la caméra/);
   assert.match(html, /Continuer sans caméra/);
   assert.match(html, /manifest\.webmanifest/);

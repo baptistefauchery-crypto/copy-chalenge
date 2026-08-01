@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
     appleWebApp: { capable: true, statusBarStyle: "default", title: "Dicta" },
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: {
-      title: "Dicta — Je regarde. J’écris. Je retiens.",
+      title: "Dicta — Dictée de mémoire",
       description: "Une dictée visuelle qui masque les mots quand l’élève regarde son cahier.",
       images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "Dicta, dictée de mémoire" }],
       locale: "fr_FR",
