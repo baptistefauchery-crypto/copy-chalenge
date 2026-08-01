@@ -275,13 +275,14 @@ export function DictaApp() {
             <p>Quelques mots apparaissent, puis disparaissent quand les yeux se tournent vers le cahier.</p>
           </section>
           <section className="card setup-card">
-            <label className="field-label" htmlFor="level-select">Niveau de la classe <span>{selectedDictation.index + 1} / {selectedDictation.total}</span></label>
-            <select id="level-select" className="level-select" value={selectedLevel} onChange={selectLevel}>
+            <label className="field-label" htmlFor="level-select">Choisir le niveau <span>{selectedDictation.index + 1} / {selectedDictation.total}</span></label>
+            <select id="level-select" className="level-select" value="" onChange={selectLevel}>
+              <option value="" disabled>Choisir une classe…</option>
               {PRIMARY_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}
             </select>
             <div className="dictation-meta">
-              <strong>Dictée {selectedDictation.index + 1} sur {selectedDictation.total}</strong>
-              <span>{getLevel(selectedLevel).cycle} · {text.trim().split(/\s+/).filter(Boolean).length} mots</span>
+              <strong>{getLevel(selectedLevel).label}</strong>
+              <span>Dictée {selectedDictation.index + 1} sur {selectedDictation.total} · {getLevel(selectedLevel).cycle} · {text.trim().split(/\s+/).filter(Boolean).length} mots</span>
             </div>
             <div className="settings-row">
               <div><strong>Lettres par étape</strong><div className="muted">Arrondi au mot supérieur · Environ {fragments.length} fragments</div></div>
