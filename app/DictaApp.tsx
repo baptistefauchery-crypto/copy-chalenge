@@ -292,6 +292,14 @@ export function DictaApp() {
       </header>
 
       {screen === "setup" && (
+        <img
+          className="home-banner"
+          src="/dicta-banner-tilted-notebook.png"
+          alt="Un œil, un cahier et un crayon illustrent la dictée de mémoire."
+        />
+      )}
+
+      {screen === "setup" && (
         <>
           <section className="card setup-card">
             <div className="setup-heading">

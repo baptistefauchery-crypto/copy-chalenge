@@ -54,6 +54,7 @@ button { touch-action: manipulation; }
 
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 850; letter-spacing: -0.04em; font-size: 22px; }
 .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: var(--ink); color: white; font-size: 18px; transform: rotate(-3deg); }
+.home-banner { display: block; width: 100%; height: clamp(150px, 30vw, 220px); margin: 12px 0 18px; border-radius: 24px; object-fit: cover; object-position: center 53%; background: var(--paper-strong); box-shadow: 0 14px 34px rgba(57, 46, 97, .10); }
 .eyebrow { color: var(--violet-dark); font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .muted { color: var(--muted); }
 

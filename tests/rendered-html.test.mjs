@@ -24,6 +24,7 @@ test("server-renders the Dicta setup experience", async () => {
   assert.match(html, /<title>Dicta/);
   assert.match(html, /Niveau de classe/);
   assert.doesNotMatch(html, /Je regarde\./);
+  assert.match(html, /dicta-banner-tilted-notebook\.png/);
   assert.match(html, /Préparer la caméra/);
   assert.match(html, /Continuer sans caméra/);
   assert.match(html, /manifest\.webmanifest/);
