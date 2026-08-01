@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { getDictation, getLevel, PRIMARY_LEVELS, splitTextIntoFragments, type PrimaryLevel } from "./lib/domain";
 import {
   MediaPipeAttentionDetector,
@@ -15,6 +15,20 @@ type CalibrationPhase = "preparing" | "measuring" | "ready" | "failed";
 const CALIBRATION_PREPARATION_MS = 2000;
 const CALIBRATION_MEASUREMENT_MS = 1500;
 const AUTO_HIDE_GRACE_MS = 2000;
+const CONFETTI_PIECES = [
+  { left: "6%", delay: "0ms", drift: "-24px", rotate: "-12deg", color: "#ef765f" },
+  { left: "13%", delay: "180ms", drift: "18px", rotate: "24deg", color: "#6654d9" },
+  { left: "21%", delay: "420ms", drift: "-12px", rotate: "-8deg", color: "#58a37c" },
+  { left: "29%", delay: "80ms", drift: "28px", rotate: "18deg", color: "#f3b34f" },
+  { left: "37%", delay: "520ms", drift: "-18px", rotate: "-22deg", color: "#ef765f" },
+  { left: "45%", delay: "240ms", drift: "16px", rotate: "12deg", color: "#6654d9" },
+  { left: "53%", delay: "640ms", drift: "-26px", rotate: "-16deg", color: "#58a37c" },
+  { left: "61%", delay: "140ms", drift: "22px", rotate: "20deg", color: "#f3b34f" },
+  { left: "69%", delay: "360ms", drift: "-14px", rotate: "-6deg", color: "#ef765f" },
+  { left: "77%", delay: "700ms", drift: "20px", rotate: "28deg", color: "#6654d9" },
+  { left: "85%", delay: "300ms", drift: "-22px", rotate: "-18deg", color: "#58a37c" },
+  { left: "93%", delay: "560ms", drift: "12px", rotate: "10deg", color: "#f3b34f" },
+] as const;
 
 const INITIAL_LEVEL: PrimaryLevel = "CP";
 const INITIAL_DICTATION = getDictation(INITIAL_LEVEL, 0);
@@ -283,11 +297,14 @@ export function DictaApp() {
     chooseNextDictation(selectedLevel);
     reset();
   };
+  const progressRatio = fragments.length > 0 ? (fragmentIndex + 1) / fragments.length : 0;
+  const progressPercent = Math.round(progressRatio * 100);
+  const progressColor = `hsl(${Math.round(8 + progressRatio * 132)} 70% 55%)`;
 
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div className="brand"><span className="brand-mark">C</span>Copy Challenge</div>
+        <div className="brand"><img className="brand-mark" src="/icons/icon-192.png" alt="" aria-hidden="true" />Copy Challenge</div>
         {screen !== "setup" && <button className="icon-button" aria-label="Quitter la séance" onClick={reset}>×</button>}
       </header>
 
@@ -390,8 +407,8 @@ export function DictaApp() {
       {screen === "session" && fragments.length > 0 && (
         <section className="session-shell">
           <div className="progress-wrap">
-            <div className="progress-label"><span>Étape {fragmentIndex + 1} sur {fragments.length}</span><span>{Math.round(((fragmentIndex + 1) / fragments.length) * 100)} %</span></div>
-            <div className="progress-track"><div className="progress-bar" style={{ width: `${((fragmentIndex + 1) / fragments.length) * 100}%` }} /></div>
+            <div className="progress-label"><span>Étape {fragmentIndex + 1} sur {fragments.length}</span><span>{progressPercent} %</span></div>
+            <div className="progress-track"><div className="progress-bar" style={{ width: `${progressPercent}%`, backgroundColor: progressColor }} /></div>
           </div>
           <div className={`card stage-card ${phase === "memorizing" ? "gaze-target-card" : ""}`}>
             {phase === "memorizing" && (
@@ -419,7 +436,24 @@ export function DictaApp() {
       {screen === "summary" && (
         <section className="session-shell">
           <div className="hero"><div className="eyebrow">Dictée terminée</div><h1>Bravo, c’est terminé !</h1><p>Chaque relecture aide à mieux connaître sa mémoire.</p></div>
-          <div className="card stage-card">
+          <div className="card stage-card summary-card">
+            {totalReviews < 3 && (
+              <div className="confetti-field" aria-hidden="true">
+                {CONFETTI_PIECES.map((piece, index) => (
+                  <span
+                    key={`${piece.left}-${index}`}
+                    className="confetti-piece"
+                    style={{
+                      "--confetti-left": piece.left,
+                      "--confetti-delay": piece.delay,
+                      "--confetti-drift": piece.drift,
+                      "--confetti-rotate": piece.rotate,
+                      "--confetti-color": piece.color,
+                    } as CSSProperties}
+                  />
+                ))}
+              </div>
+            )}
             <div className="summary-number">{fragments.length}</div><div className="muted">fragments écrits</div>
             <div className="summary-grid">
               <div className="summary-stat"><strong>{totalReviews}</strong><span>relectures</span></div>

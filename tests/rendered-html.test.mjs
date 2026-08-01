@@ -22,6 +22,7 @@ test("server-renders the Copy Challenge setup experience", async () => {
   const html = await response.text();
   assert.match(html, /<html lang="fr">/);
   assert.match(html, /<title>Copy Challenge/);
+  assert.match(html, /src="\/icons\/icon-192\.png"/);
   assert.match(html, /Niveau de classe/);
   assert.doesNotMatch(html, /Je regarde\./);
   assert.match(html, /dicta-banner-tilted-notebook\.png/);
@@ -61,4 +62,6 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(pwaProvider, /Google Chrome/);
   assert.match(pwaProvider, /display-mode: fullscreen/);
   assert.match(dictaApp, /AUTO_HIDE_GRACE_MS = 2000/);
+  assert.match(dictaApp, /progressColor/);
+  assert.match(dictaApp, /totalReviews < 3/);
 });
