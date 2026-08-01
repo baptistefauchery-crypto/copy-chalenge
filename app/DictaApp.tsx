@@ -52,6 +52,7 @@ export function DictaApp() {
     maxWords: Math.min(10, wordsPerFragment + 2),
   }), [text, wordsPerFragment]);
   const totalReviews = reviewCounts.reduce((sum, value) => sum + value, 0);
+  const keepCameraMounted = cameraMode === "camera" && screen !== "setup" && screen !== "summary";
 
   useEffect(() => {
     if (!toast) return;
@@ -192,7 +193,6 @@ export function DictaApp() {
       }
     };
     const preparationTimer = window.setTimeout(() => {
-      detectorRef.current?.beginCalibration("screen");
       setCalibrationPhase("measuring");
       measurementTimer = window.setTimeout(finishMeasurement, CALIBRATION_MEASUREMENT_MS);
     }, CALIBRATION_PREPARATION_MS);
@@ -282,8 +282,12 @@ export function DictaApp() {
         </>
       )}
 
-      {screen === "placement" && (
-        <section className="session-shell placement-shell">
+      {keepCameraMounted && (
+        <section
+          className={`session-shell placement-shell ${screen === "placement" ? "" : "camera-keeper"}`}
+          aria-hidden={screen !== "placement"}
+          inert={screen !== "placement"}
+        >
           <div className="hero"><div className="eyebrow">Installation</div><h1>Place ton visage dans le repère.</h1><p>Pose le téléphone verticalement, à peu près à la longueur d’un bras.</p></div>
           <div className="card setup-card placement-card">
             <div className="camera-stage" data-ready={faceDetected ? "true" : "false"}>
@@ -301,7 +305,7 @@ export function DictaApp() {
               </div>
             </div>
             <div className="placement-tip"><span className="placement-tip-icon" aria-hidden="true">◎</span><span>Centre ton visage dans le cadre, puis garde le téléphone bien droit.</span></div>
-            <button className="primary-button" disabled={!faceDetected || cameraLoading} onClick={() => { primeAudioFeedback(); setCalibrationPhase("preparing"); setScreen("calibration-screen"); }}>{faceDetected ? "Mon visage est bien placé" : "Recherche du visage…"}</button>
+            <button className="primary-button" disabled={!faceDetected || cameraLoading} onClick={() => { primeAudioFeedback(); detectorRef.current?.beginCalibration("screen"); setCalibrationPhase("preparing"); setScreen("calibration-screen"); }}>{faceDetected ? "Mon visage est bien placé" : "Recherche du visage…"}</button>
             <button className="manual-hide" onClick={beginManual}>Utiliser le mode manuel</button>
           </div>
         </section>
@@ -316,7 +320,7 @@ export function DictaApp() {
               {calibrationPhase === "preparing" ? "Regarde les mots, le réglage démarre tout seul." : calibrationPhase === "measuring" ? "C’est presque terminé…" : calibrationPhase === "failed" ? "Replace ton visage dans le champ de la caméra." : "C’est bon, tu peux bouger."}
             </p>
             {calibrationPhase === "failed" && (
-              <button className="primary-button" onClick={() => { setCalibrationPhase("preparing"); setCalibrationAttempt((value) => value + 1); }}>Réessayer</button>
+              <button className="primary-button" onClick={() => { detectorRef.current?.beginCalibration("screen"); setCalibrationPhase("preparing"); setCalibrationAttempt((value) => value + 1); }}>Réessayer</button>
             )}
           </div>
         </section>

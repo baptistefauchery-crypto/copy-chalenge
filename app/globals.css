@@ -132,6 +132,26 @@ button { touch-action: manipulation; }
 .manual-hide { margin-top: 28px; border: 0; background: transparent; color: var(--muted); text-decoration: underline; text-underline-offset: 4px; padding: 12px; }
 
 .placement-shell { padding-top: 0; min-height: 0; }
+.camera-keeper {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  overflow: hidden;
+  opacity: .01;
+  pointer-events: none;
+}
+.camera-keeper > .hero,
+.camera-keeper .placement-tip,
+.camera-keeper button,
+.camera-keeper .camera-shade,
+.camera-keeper .face-guide,
+.camera-keeper .camera-status { display: none; }
+.camera-keeper .placement-card,
+.camera-keeper .camera-stage { width: 16px; height: 16px; min-height: 0; padding: 0; border: 0; border-radius: 0; }
 .placement-shell > .hero { padding: 24px 2px 16px; }
 .placement-shell > .hero h1 { margin: 8px 0 10px; font-size: clamp(34px, 9vw, 58px); }
 .placement-shell > .hero p { font-size: 15px; line-height: 1.4; }

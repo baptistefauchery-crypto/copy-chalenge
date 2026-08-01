@@ -28,6 +28,7 @@ export class MediaPipeAttentionDetector implements AttentionDetector {
   private lastVideoProgressAt = 0;
   private readonly listeners = new Set<DetectorListener>();
   private readonly samples: Record<"screen" | "notebook", AttentionFeatures[]> = { screen: [], notebook: [] };
+  private recentFeatures: AttentionFeatures[] = [];
   private calibrationParts: Partial<Record<"screen" | "notebook", CalibrationSample>> = {};
   private calibration: AttentionCalibration | null = null;
   private collecting: "screen" | "notebook" | null = null;
@@ -88,13 +89,17 @@ export class MediaPipeAttentionDetector implements AttentionDetector {
     if (this.video) this.video.srcObject = null;
     this.video = null;
     this.collecting = null;
+    this.recentFeatures = [];
     this.lastVideoTime = -1;
     this.lastVideoProgressAt = 0;
     this.stabilizer.reset();
   }
 
   beginCalibration(target: "screen" | "notebook"): void {
-    this.samples[target] = [];
+    // The placement screen already proved that these frames contain a face
+    // looking at the display. Seed calibration from them so a route change or
+    // a brief dropped frame cannot erase all usable evidence.
+    this.samples[target] = target === "screen" ? this.recentFeatures.slice(-15) : [];
     if (target === "screen") {
       this.calibration = null;
       this.calibrationParts = {};
@@ -156,6 +161,8 @@ export class MediaPipeAttentionDetector implements AttentionDetector {
       this.publishFaceMissing(timestamp);
       return;
     }
+    this.recentFeatures.push(features);
+    if (this.recentFeatures.length > 20) this.recentFeatures.shift();
     if (this.collecting) this.samples[this.collecting].push(features);
     if (!this.calibration) {
       this.publish({ state: "unknown", confidence: 0, features, faceDetected: true, timestamp });
