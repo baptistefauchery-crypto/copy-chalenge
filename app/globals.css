@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #f5efe5;
+  --paper: #f7e6cf;
   --paper-strong: #fffaf2;
   --ink: #25233b;
   --muted: #716d7e;
@@ -25,8 +25,9 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 10% 5%, rgba(239, 118, 95, 0.10), transparent 32%),
-    radial-gradient(circle at 95% 15%, rgba(102, 84, 217, 0.10), transparent 30%),
+    radial-gradient(circle at 8% 4%, rgba(239, 118, 95, 0.28), transparent 34%),
+    radial-gradient(circle at 96% 12%, rgba(102, 84, 217, 0.24), transparent 32%),
+    radial-gradient(circle at 50% 108%, rgba(88, 163, 124, 0.18), transparent 42%),
     var(--paper);
   color: var(--ink);
   font-family: Inter, ui-rounded, "Avenir Next", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -52,6 +53,16 @@ button { touch-action: manipulation; }
   gap: 12px;
 }
 
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.info-button {
+  width: 36px; height: 36px; padding: 0; border: 1px solid rgba(102, 84, 217, .26); border-radius: 50%;
+  display: grid; place-items: center; background: rgba(255, 250, 242, .72); color: var(--violet-dark);
+  font-size: 19px; font-weight: 900; font-family: Georgia, serif; cursor: pointer;
+  box-shadow: 0 5px 14px rgba(57, 46, 97, .08); transition: background .2s ease, color .2s ease, transform .2s ease;
+}
+.info-button:hover, .info-button[aria-expanded="true"] { background: var(--violet); color: white; transform: translateY(-1px); }
+.info-button:focus-visible, .help-close:focus-visible { outline: 3px solid rgba(102, 84, 217, .25); outline-offset: 3px; }
+
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 850; letter-spacing: -0.04em; font-size: 22px; }
 .brand-mark { width: 34px; height: 34px; display: block; flex: 0 0 auto; border-radius: 11px; object-fit: cover; transform: rotate(-3deg); box-shadow: 0 4px 10px rgba(37, 35, 59, .16); }
 .home-banner { display: block; width: 100%; height: clamp(150px, 30vw, 220px); margin: 12px 0 18px; border-radius: 24px; object-fit: cover; object-position: center 53%; background: var(--paper-strong); box-shadow: 0 14px 34px rgba(57, 46, 97, .10); }
@@ -62,6 +73,25 @@ button { touch-action: manipulation; }
   border: 1px solid var(--line); background: rgba(255,255,255,.58); color: var(--ink);
   width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; font-size: 19px;
 }
+
+.help-panel {
+  margin: 8px 0 16px; padding: 18px; border: 1px solid rgba(102, 84, 217, .16); border-radius: 24px;
+  background: rgba(255, 250, 242, .94); box-shadow: 0 15px 34px rgba(57, 46, 97, .10);
+}
+.help-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.help-panel h2 { margin: 5px 0 0; font-size: clamp(22px, 6vw, 30px); line-height: 1.05; letter-spacing: -.05em; }
+.help-close {
+  width: 32px; height: 32px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 50%;
+  background: white; color: var(--ink); font-size: 19px; line-height: 1; cursor: pointer;
+}
+.help-list { display: grid; gap: 10px; list-style: none; counter-reset: help-step; margin: 18px 0 0; padding: 0; }
+.help-list li { counter-increment: help-step; display: grid; grid-template-columns: 28px 1fr; column-gap: 10px; align-items: start; }
+.help-list li::before {
+  content: counter(help-step); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--violet-soft); color: var(--violet-dark); font-size: 13px; font-weight: 900;
+}
+.help-list strong { display: block; padding-top: 2px; font-size: 14px; }
+.help-list span { grid-column: 2; margin-top: -2px; color: var(--muted); font-size: 12px; line-height: 1.4; }
 
 .hero { padding: 48px 2px 25px; }
 .hero h1 { margin: 10px 0 14px; max-width: 520px; font-size: clamp(38px, 11vw, 65px); line-height: .98; letter-spacing: -.065em; font-weight: 880; }
@@ -115,6 +145,7 @@ button { touch-action: manipulation; }
 
 .privacy-note { display: flex; gap: 11px; margin: 18px 4px 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .privacy-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; background: #58a37c; margin-top: 5px; box-shadow: 0 0 0 5px rgba(88,163,124,.12); }
+.home-footer { margin-top: auto; padding: 22px 4px 0; color: var(--muted); font-size: 11px; line-height: 1.4; text-align: center; }
 
 .session-shell { flex: 1; display: flex; flex-direction: column; padding-top: 12px; }
 .summary-shell { position: relative; isolation: isolate; overflow: hidden; min-height: calc(100svh - 82px); margin-inline: -18px; padding: 12px 18px 22px; }

@@ -164,6 +164,7 @@ export function DictaApp() {
   const [currentScoreId, setCurrentScoreId] = useState<string | null>(null);
   const [isNewBestScore, setIsNewBestScore] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const detectorRef = useRef<AttentionDetector | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -281,6 +282,7 @@ export function DictaApp() {
     setCameraError(null);
     setCameraLoading(true);
     setCameraMode("camera");
+    setIsHelpOpen(false);
     setScreen("placement");
   }, [primeAudioFeedback]);
 
@@ -384,6 +386,7 @@ export function DictaApp() {
     setCameraLoading(false);
     setCameraMode("manual");
     setCameraError(null);
+    setIsHelpOpen(false);
     calibrationReadConfirmedRef.current = false;
     setCalibrationPhase("ready");
     setScreen("calibration-screen");
@@ -430,6 +433,7 @@ export function DictaApp() {
   const reset = () => {
     stopCamera();
     setCameraLoading(false);
+    setIsHelpOpen(false);
     setScreen("setup");
     setPhase("memorizing");
     setFragmentIndex(0);
@@ -453,8 +457,41 @@ export function DictaApp() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand"><img className="brand-mark" src="/icons/icon-192.png" alt="" aria-hidden="true" />Copy Challenge</div>
-        {screen !== "setup" && <button className="icon-button" aria-label="Quitter la séance" onClick={reset}>×</button>}
+        <div className="topbar-actions">
+          {screen === "setup" && (
+            <button
+              className="info-button"
+              type="button"
+              aria-label="Comment utiliser Copy Challenge"
+              aria-expanded={isHelpOpen}
+              aria-controls="how-to-use"
+              onClick={() => setIsHelpOpen((open) => !open)}
+            >
+              i
+            </button>
+          )}
+          {screen !== "setup" && <button className="icon-button" aria-label="Quitter la séance" onClick={reset}>×</button>}
+        </div>
       </header>
+
+      {screen === "setup" && isHelpOpen && (
+        <section id="how-to-use" className="help-panel" aria-label="Comment utiliser Copy Challenge">
+          <div className="help-panel-heading">
+            <div>
+              <div className="eyebrow">Mode d’emploi</div>
+              <h2>Comment utiliser Copy Challenge</h2>
+            </div>
+            <button className="help-close" type="button" aria-label="Fermer les informations" onClick={() => setIsHelpOpen(false)}>×</button>
+          </div>
+          <ol className="help-list">
+            <li><strong>Choisis ta classe</strong><span>Le niveau sélectionne une dictée adaptée. Le numéro de la dictée est indiqué à côté du niveau.</span></li>
+            <li><strong>Choisis les lettres par étape</strong><span>La dictée est découpée en petits groupes de mots, sans mélanger deux phrases.</span></li>
+            <li><strong>Lis toute la dictée</strong><span>Avec la caméra ou en mode manuel, lis le texte affiché puis appuie sur « J’ai lu ».</span></li>
+            <li><strong>Mémorise et écris</strong><span>Regarde le fragment, écris-le sur ton cahier, puis relève les yeux pour continuer.</span></li>
+            <li><strong>Revois si nécessaire</strong><span>À chaque étape, choisis « Revoir » ou « Continuer ». Ton score et le classement s’affichent à la fin.</span></li>
+          </ol>
+        </section>
+      )}
 
       {screen === "setup" && (
         <img
@@ -502,6 +539,7 @@ export function DictaApp() {
             <button className="manual-hide" onClick={beginManual}>Continuer sans caméra</button>
           </section>
           <p className="privacy-note"><span className="privacy-dot" />La vidéo reste sur ce téléphone. Aucune image n’est enregistrée ni envoyée.</p>
+          <footer className="home-footer">Tous droits réservés, Florence Fauchery</footer>
         </>
       )}
 
