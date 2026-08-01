@@ -67,6 +67,7 @@ const installButtonStyle: CSSProperties = {
 function isInstalledApp() {
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
     (navigator as StandaloneNavigator).standalone === true ||
     document.referrer.startsWith("android-app://")
   );
@@ -89,6 +90,10 @@ export function PwaProvider() {
       () => setIsInstalled(isInstalledApp()),
       0,
     );
+    const checkInstalledMode = () => setIsInstalled(isInstalledApp());
+    const standaloneMediaQuery = window.matchMedia("(display-mode: standalone)");
+    document.addEventListener("visibilitychange", checkInstalledMode);
+    standaloneMediaQuery.addEventListener("change", checkInstalledMode);
     let removeServiceWorkerListener: (() => void) | undefined;
     if ("serviceWorker" in navigator) {
       const hadController = Boolean(navigator.serviceWorker.controller);
@@ -140,6 +145,8 @@ export function PwaProvider() {
     window.addEventListener("appinstalled", confirmInstallation);
     return () => {
       window.clearTimeout(installationCheckTimer);
+      document.removeEventListener("visibilitychange", checkInstalledMode);
+      standaloneMediaQuery.removeEventListener("change", checkInstalledMode);
       removeServiceWorkerListener?.();
       window.removeEventListener("beforeinstallprompt", captureInstallPrompt);
       window.removeEventListener("appinstalled", confirmInstallation);
@@ -188,8 +195,9 @@ export function PwaProvider() {
                 textAlign: "center",
               }}
             >
-              Dans Chrome Android, ouvre le menu ⋮ puis « Installer l’application »
-              ou « Ajouter à l’écran d’accueil ».
+              Dans Chrome Android, ouvre le menu ⋮ puis choisis « Installer
+              l’application ». « Ajouter à l’écran d’accueil » crée seulement
+              un raccourci et conserve la barre du navigateur.
             </span>
           )}
         </aside>

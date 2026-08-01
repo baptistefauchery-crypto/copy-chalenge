@@ -34,6 +34,7 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.equal(manifest.short_name, "Dicta");
   assert.equal(manifest.id, "/");
   assert.equal(manifest.display, "standalone");
+  assert.deepEqual(manifest.display_override, ["standalone"]);
   assert.equal(manifest.orientation, "portrait-primary");
 
   await Promise.all([
@@ -51,5 +52,6 @@ test("ships the Android PWA and local vision assets", async () => {
   const pwaProvider = await readFile(new URL("../app/components/pwa/PwaProvider.tsx", import.meta.url), "utf8");
   assert.match(pwaProvider, /display-mode: standalone/);
   assert.match(pwaProvider, /Installer Dicta sur ce téléphone/);
-  assert.match(pwaProvider, /Installer l’application/);
+  assert.match(pwaProvider, /Installer\s+l’application/);
+  assert.match(pwaProvider, /display-mode: fullscreen/);
 });
