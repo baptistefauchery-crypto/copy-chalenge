@@ -667,7 +667,7 @@ export function DictaApp() {
             {phase === "decision" && (
               <>
                 <div className="eyebrow choice-eyebrow">À toi de choisir</div>
-                <div className="fragment choice-prompt" style={{ fontSize: "clamp(30px, 8vw, 46px)" }}>Revoir les mots pour l’interrogation</div>
+                <div className="fragment choice-prompt" style={{ fontSize: "clamp(30px, 8vw, 46px)" }}>Revoir les mots ?</div>
                 <div className="choice-grid">
                   <button className="choice-button review" onClick={review}><span className="choice-arrow" aria-hidden="true">↶</span> Revoir</button>
                   <button className="choice-button next" onClick={next}>Continuer <span className="choice-arrow" aria-hidden="true">→</span></button>
