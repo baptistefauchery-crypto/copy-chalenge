@@ -1,5 +1,5 @@
-/* Dicta service worker — bump this value whenever the offline shell changes. */
-const CACHE_VERSION = "dicta-v4";
+/* Copy Challenge service worker — bump this value whenever the offline shell changes. */
+const CACHE_VERSION = "copy-challenge-v1";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -28,7 +28,7 @@ self.addEventListener("activate", (event) => {
           keys
             .filter(
               (key) =>
-                key.startsWith("dicta-") &&
+                (key.startsWith("dicta-") || key.startsWith("copy-challenge-")) &&
                 key !== SHELL_CACHE &&
                 key !== RUNTIME_CACHE,
             )

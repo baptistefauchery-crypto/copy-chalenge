@@ -10,16 +10,16 @@ export async function generateMetadata(): Promise<Metadata> {
   const origin = `${protocol}://${host}`;
 
   return {
-    title: "Dicta",
+    title: "Copy Challenge",
     description: "Mémoriser quelques mots, les écrire, puis avancer à son rythme.",
     manifest: "/manifest.webmanifest",
-    applicationName: "Dicta",
-    appleWebApp: { capable: true, statusBarStyle: "default", title: "Dicta" },
+    applicationName: "Copy Challenge",
+    appleWebApp: { capable: true, statusBarStyle: "default", title: "Copy Challenge" },
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: {
-      title: "Dicta — Dictée de mémoire",
+      title: "Copy Challenge — Dictée de mémoire",
       description: "Une dictée visuelle qui masque les mots quand l’élève regarde son cahier.",
-      images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "Dicta, dictée de mémoire" }],
+      images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "Copy Challenge, dictée de mémoire" }],
       locale: "fr_FR",
       type: "website",
     },

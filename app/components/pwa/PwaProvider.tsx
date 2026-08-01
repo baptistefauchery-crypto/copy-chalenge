@@ -189,11 +189,11 @@ export function PwaProvider() {
         >
           <button
             type="button"
-            aria-label="Installer Dicta sur ce téléphone"
+            aria-label="Installer Copy Challenge sur ce téléphone"
             onClick={requestInstallation}
             style={installButtonStyle}
           >
-            Installer Dicta sur ce téléphone
+            Installer Copy Challenge sur ce téléphone
           </button>
           {installHelp && (
             <span
@@ -216,7 +216,7 @@ export function PwaProvider() {
       {updateReady && (
         <aside aria-label="Mise à jour disponible" style={noticeStyle}>
           <span style={{ fontSize: "0.92rem", lineHeight: 1.35 }}>
-            Une nouvelle version de Dicta est disponible.
+            Une nouvelle version de Copy Challenge est disponible.
           </span>
           <button type="button" onClick={applyUpdate} style={noticeButtonStyle}>
             Mettre à jour

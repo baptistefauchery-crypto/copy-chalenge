@@ -140,7 +140,8 @@ button { touch-action: manipulation; }
 .hidden-fragment { width: min(330px, 82%); height: 90px; border-radius: 22px; background: repeating-linear-gradient(100deg, #e9e4df 0 18px, #f2ede7 18px 36px); filter: blur(2px); margin: 45px 0 22px; }
 .stage-help { max-width: 340px; color: var(--muted); line-height: 1.5; margin: 0; }
 .choice-grid { width: min(410px, 100%); margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.choice-button { min-height: 70px; }
+.choice-button { min-height: 70px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-size: 18px; letter-spacing: -.02em; }
+.choice-arrow { display: inline-block; font-size: 1.45em; font-weight: 900; line-height: .7; }
 .choice-button.review { background: var(--violet-soft); color: var(--violet-dark); }
 .choice-button.next { background: var(--violet); color: white; }
 .manual-hide { margin-top: 28px; border: 0; background: transparent; color: var(--muted); text-decoration: underline; text-underline-offset: 4px; padding: 12px; }

@@ -14,7 +14,7 @@ type CalibrationPhase = "preparing" | "measuring" | "ready" | "failed";
 
 const CALIBRATION_PREPARATION_MS = 2000;
 const CALIBRATION_MEASUREMENT_MS = 1500;
-const AUTO_HIDE_GRACE_MS = 1000;
+const AUTO_HIDE_GRACE_MS = 2000;
 
 const INITIAL_LEVEL: PrimaryLevel = "CP";
 const INITIAL_DICTATION = getDictation(INITIAL_LEVEL, 0);
@@ -287,7 +287,7 @@ export function DictaApp() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div className="brand"><span className="brand-mark">D</span>Dicta</div>
+        <div className="brand"><span className="brand-mark">C</span>Copy Challenge</div>
         {screen !== "setup" && <button className="icon-button" aria-label="Quitter la séance" onClick={reset}>×</button>}
       </header>
 
@@ -407,8 +407,8 @@ export function DictaApp() {
                 <div className="eyebrow">À toi de choisir</div>
                 <div className="fragment" style={{ fontSize: "clamp(30px, 8vw, 46px)" }}>Tu veux revoir les mots ?</div>
                 <div className="choice-grid">
-                  <button className="choice-button review" onClick={review}>↶ Revoir</button>
-                  <button className="choice-button next" onClick={next}>Continuer →</button>
+                  <button className="choice-button review" onClick={review}><span className="choice-arrow" aria-hidden="true">↶</span> Revoir</button>
+                  <button className="choice-button next" onClick={next}>Continuer <span className="choice-arrow" aria-hidden="true">→</span></button>
                 </div>
               </>
             )}

@@ -14,14 +14,14 @@ async function render() {
   );
 }
 
-test("server-renders the Dicta setup experience", async () => {
+test("server-renders the Copy Challenge setup experience", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, /<html lang="fr">/);
-  assert.match(html, /<title>Dicta/);
+  assert.match(html, /<title>Copy Challenge/);
   assert.match(html, /Niveau de classe/);
   assert.doesNotMatch(html, /Je regarde\./);
   assert.match(html, /dicta-banner-tilted-notebook\.png/);
@@ -33,7 +33,7 @@ test("server-renders the Dicta setup experience", async () => {
 
 test("ships the Android PWA and local vision assets", async () => {
   const manifest = JSON.parse(await readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"));
-  assert.equal(manifest.short_name, "Dicta");
+  assert.equal(manifest.short_name, "Copy Challenge");
   assert.equal(manifest.id, "/");
   assert.equal(manifest.display, "standalone");
   assert.deepEqual(manifest.display_override, ["standalone"]);
@@ -43,18 +43,22 @@ test("ships the Android PWA and local vision assets", async () => {
     access(new URL("../public/sw.js", import.meta.url)),
     access(new URL("../public/icons/icon-192.png", import.meta.url)),
     access(new URL("../public/icons/icon-512.png", import.meta.url)),
+    access(new URL("../public/icons/copy-challenge-option-a.png", import.meta.url)),
+    access(new URL("../public/icons/copy-challenge-option-b.png", import.meta.url)),
     access(new URL("../public/models/face_landmarker.task", import.meta.url)),
     access(new URL("../public/mediapipe/wasm/vision_wasm_internal.wasm", import.meta.url)),
   ]);
 
   const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /CACHE_VERSION = "dicta-v4"/);
+  assert.match(serviceWorker, /CACHE_VERSION = "copy-challenge-v1"/);
   assert.match(serviceWorker, /icon-maskable-512\.png/);
 
   const pwaProvider = await readFile(new URL("../app/components/pwa/PwaProvider.tsx", import.meta.url), "utf8");
+  const dictaApp = await readFile(new URL("../app/DictaApp.tsx", import.meta.url), "utf8");
   assert.match(pwaProvider, /display-mode: standalone/);
-  assert.match(pwaProvider, /Installer Dicta sur ce téléphone/);
+  assert.match(pwaProvider, /Installer Copy Challenge sur ce téléphone/);
   assert.match(pwaProvider, /Installer\s+l’application/);
   assert.match(pwaProvider, /Google Chrome/);
   assert.match(pwaProvider, /display-mode: fullscreen/);
+  assert.match(dictaApp, /AUTO_HIDE_GRACE_MS = 2000/);
 });
