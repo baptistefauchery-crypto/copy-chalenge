@@ -113,17 +113,16 @@ button { touch-action: manipulation; }
 .privacy-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; background: #58a37c; margin-top: 5px; box-shadow: 0 0 0 5px rgba(88,163,124,.12); }
 
 .session-shell { flex: 1; display: flex; flex-direction: column; padding-top: 12px; }
-.calibration-shell { padding-top: 0; }
-.calibration-shell > .hero { order: 2; padding: 24px 2px 16px; }
-.calibration-shell > .calibration-card { order: 1; flex: 0 0 auto; min-height: 300px; padding-top: 22px; }
+.calibration-shell { justify-content: center; padding-top: 0; }
 .progress-wrap { padding: 18px 2px 28px; }
 .progress-label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 750; margin-bottom: 9px; }
 .progress-track { height: 7px; overflow: hidden; border-radius: 99px; background: rgba(37,35,59,.1); }
 .progress-bar { height: 100%; border-radius: inherit; background: var(--coral); transition: width .35s ease; }
 
 .stage-card { position: relative; flex: 1; min-height: 440px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 34px 24px; overflow: hidden; }
-.calibration-card { justify-content: flex-start; padding-top: 72px; }
-.calibration-card .summary-number { margin-top: 0; }
+.calibration-card { min-height: 440px; align-items: center; justify-content: center; padding: 34px 24px; }
+.calibration-message { max-width: 360px; font-size: clamp(34px, 9vw, 54px); font-weight: 850; letter-spacing: -.05em; line-height: 1.05; }
+.calibration-card[data-phase="failed"] .calibration-message { font-size: clamp(24px, 7vw, 34px); }
 .gaze-target-card { justify-content: flex-start; padding-top: 82px; }
 .gaze-target-card .fragment { margin-top: 12px; }
 .stage-card::before { content: ""; position: absolute; inset: 18px; border: 1px dashed rgba(102,84,217,.18); border-radius: 21px; pointer-events: none; }
@@ -241,7 +240,7 @@ button { touch-action: manipulation; }
 .placement-tip-icon { flex: 0 0 auto; color: var(--violet); font-size: 18px; line-height: 1.05; }
 
 .summary-number { font-size: 76px; line-height: 1; letter-spacing: -.06em; font-weight: 900; color: var(--violet); margin: 22px 0 4px; }
-.calibration-help { max-width: 360px; margin-top: 22px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .summary-grid { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 28px 0 8px; }
 .summary-stat { padding: 18px; border-radius: 20px; background: white; border: 1px solid var(--line); }
 .summary-stat strong { display: block; font-size: 27px; }.summary-stat span { font-size: 12px; color: var(--muted); }

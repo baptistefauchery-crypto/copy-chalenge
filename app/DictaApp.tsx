@@ -12,7 +12,7 @@ type Screen = "setup" | "placement" | "calibration-screen" | "session" | "summar
 type SessionPhase = "memorizing" | "decision";
 type CalibrationPhase = "preparing" | "measuring" | "ready" | "failed";
 
-const CALIBRATION_PREPARATION_MS = 800;
+const CALIBRATION_PREPARATION_MS = 2000;
 const CALIBRATION_MEASUREMENT_MS = 1500;
 
 const INITIAL_LEVEL: PrimaryLevel = "CP";
@@ -341,14 +341,17 @@ export function DictaApp() {
 
       {screen === "calibration-screen" && (
         <section className="session-shell calibration-shell">
-          <div className="hero"><div className="eyebrow">Réglage automatique</div><h1>Lis ces mots naturellement.</h1><p>Pas besoin de rester immobile : regarde simplement l’écran comme pendant la dictée.</p></div>
-          <div className="card stage-card calibration-card">
-            <div className="fragment">{fragments[0]}</div>
-            <p className="stage-help calibration-help">
-              {calibrationPhase === "preparing" ? "Regarde les mots, le réglage démarre tout seul." : calibrationPhase === "measuring" ? "C’est presque terminé…" : calibrationPhase === "failed" ? "Replace ton visage dans le champ de la caméra." : "C’est bon, tu peux bouger."}
-            </p>
-            {calibrationPhase === "failed" && (
-              <button className="primary-button" onClick={() => { detectorRef.current?.beginCalibration("screen"); setCalibrationPhase("preparing"); setCalibrationAttempt((value) => value + 1); }}>Réessayer</button>
+          <div className="card stage-card calibration-card" data-phase={calibrationPhase}>
+            {calibrationPhase === "failed" ? (
+              <>
+                <div className="calibration-message" role="alert">Replace ton visage dans le champ de la caméra.</div>
+                <button className="primary-button" onClick={() => { detectorRef.current?.beginCalibration("screen"); setCalibrationPhase("preparing"); setCalibrationAttempt((value) => value + 1); }}>Réessayer</button>
+              </>
+            ) : (
+              <>
+                <div className="calibration-message" role="status" aria-live="polite">Regardez la caméra</div>
+                <span className="sr-only">{calibrationPhase === "preparing" ? "La calibration commence dans deux secondes." : "Calibration en cours."}</span>
+              </>
             )}
           </div>
         </section>
