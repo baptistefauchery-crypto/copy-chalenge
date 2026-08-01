@@ -12,7 +12,6 @@ export type SessionState =
   | ({ status: "calibration"; step: "screen" | "notebook" } & SessionContext)
   | ({ status: "ready" } & SessionContext)
   | ({ status: "memorizing" } & SessionContext)
-  | ({ status: "writing" } & SessionContext)
   | ({ status: "decision" } & SessionContext)
   | ({ status: "summary" } & SessionContext)
   | ({ status: "error"; message: string; recoverable: boolean } & SessionContext);
@@ -24,7 +23,6 @@ export type SessionEvent =
   | { type: "USE_MANUAL_MODE" }
   | { type: "START"; startedAt: string }
   | { type: "LOOKED_AWAY" }
-  | { type: "LOOKED_BACK" }
   | { type: "REVIEW" }
   | { type: "CONTINUE"; completedAt?: string }
   | { type: "FAIL"; message: string; recoverable?: boolean }
@@ -119,11 +117,7 @@ export function transitionSession(state: SessionState, event: SessionEvent): Ses
       break;
 
     case "memorizing":
-      if (event.type === "LOOKED_AWAY") return withStatus(state, "writing");
-      break;
-
-    case "writing":
-      if (event.type === "LOOKED_BACK") return withStatus(state, "decision");
+      if (event.type === "LOOKED_AWAY") return withStatus(state, "decision");
       break;
 
     case "decision":
@@ -176,4 +170,3 @@ export function transitionSession(state: SessionState, event: SessionEvent): Ses
 
   return state;
 }
-

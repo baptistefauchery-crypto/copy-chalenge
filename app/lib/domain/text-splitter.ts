@@ -1,85 +1,46 @@
 export interface TextSplitOptions {
-  /** Desired fragment size. Defaults to 5 words. */
-  targetWords?: number;
-  /** Smallest fragment size, except when the whole remaining text is shorter. */
-  minWords?: number;
-  /** Hard upper bound. Defaults to 7 words. */
-  maxWords?: number;
-  /** Prefer sentence and clause endings close to the target. Defaults to true. */
-  preferPunctuation?: boolean;
+  /** Desired fragment size in letters. The fragment ends at the next word boundary. */
+  targetLetters?: number;
 }
-
-const STRONG_END = /[.!?…][”»)]*$/u;
-const SOFT_END = /[,;:][”»)]*$/u;
-const WEAK_END_WORDS = new Set([
-  "à", "au", "aux", "avec", "ce", "ces", "cette", "de", "des", "du",
-  "en", "et", "la", "le", "les", "mais", "ou", "par", "pour", "sans",
-  "sous", "sur", "un", "une",
-]);
 
 function normalizeOptions(options: TextSplitOptions) {
-  const targetWords = options.targetWords ?? 5;
-  const minWords = options.minWords ?? 3;
-  const maxWords = options.maxWords ?? 7;
+  const targetLetters = options.targetLetters ?? 30;
 
-  if (![targetWords, minWords, maxWords].every(Number.isInteger)) {
+  if (!Number.isInteger(targetLetters)) {
     throw new TypeError("Fragment sizes must be integers");
   }
-  if (minWords < 1 || targetWords < minWords || maxWords < targetWords) {
-    throw new RangeError("Expected 1 <= minWords <= targetWords <= maxWords");
+  if (targetLetters < 1) {
+    throw new RangeError("targetLetters must be a positive integer");
   }
 
-  return {
-    targetWords,
-    minWords,
-    maxWords,
-    preferPunctuation: options.preferPunctuation ?? true,
-  };
+  return { targetLetters };
 }
 
-function cleanEndingWord(token: string): string {
-  return token
-    .toLocaleLowerCase("fr")
-    .replace(/^[«“(]+|[.,;:!?…»”')]+$/gu, "");
+/** Counts letters while ignoring spaces, punctuation, and numbers. */
+export function countLetters(text: string): number {
+  return Array.from(text.matchAll(/\p{L}/gu)).length;
 }
 
 function chooseSize(
   words: readonly string[],
   offset: number,
-  minWords: number,
-  targetWords: number,
-  maxWords: number,
-  preferPunctuation: boolean,
+  targetLetters: number,
 ): number {
   const remaining = words.length - offset;
-  if (remaining <= maxWords) return remaining;
+  let letters = 0;
 
-  const upper = Math.min(maxWords, remaining - minWords);
-  const lower = Math.min(minWords, upper);
-
-  if (preferPunctuation) {
-    for (let size = upper; size >= lower; size -= 1) {
-      if (STRONG_END.test(words[offset + size - 1])) return size;
-    }
-    for (let distance = 0; distance <= maxWords; distance += 1) {
-      for (const size of [targetWords - distance, targetWords + distance]) {
-        if (size >= lower && size <= upper && SOFT_END.test(words[offset + size - 1])) {
-          return size;
-        }
-      }
-    }
+  for (let size = 1; size <= remaining; size += 1) {
+    letters += countLetters(words[offset + size - 1]);
+    if (letters >= targetLetters) return size;
   }
 
-  for (let size = Math.min(targetWords, upper); size >= lower; size -= 1) {
-    if (!WEAK_END_WORDS.has(cleanEndingWord(words[offset + size - 1]))) return size;
-  }
-
-  return Math.min(targetWords, upper);
+  return remaining;
 }
 
 /**
- * Splits French prose into readable word groups while preserving the original
- * punctuation. Whitespace is normalized and an empty input produces [].
+ * Splits French prose into readable fragments of roughly the requested number
+ * of letters. Each fragment is rounded up to the next complete word while
+ * preserving punctuation. Whitespace is normalized and an empty input produces [].
  */
 export function splitTextIntoFragments(
   text: string,
@@ -96,10 +57,7 @@ export function splitTextIntoFragments(
     const size = chooseSize(
       words,
       offset,
-      config.minWords,
-      config.targetWords,
-      config.maxWords,
-      config.preferPunctuation,
+      config.targetLetters,
     );
     fragments.push(words.slice(offset, offset + size).join(" "));
     offset += size;
@@ -107,4 +65,3 @@ export function splitTextIntoFragments(
 
   return fragments;
 }
-

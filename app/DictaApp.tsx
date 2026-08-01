@@ -9,7 +9,7 @@ import {
 } from "./lib/vision";
 
 type Screen = "setup" | "placement" | "calibration-screen" | "session" | "summary";
-type SessionPhase = "memorizing" | "writing" | "decision";
+type SessionPhase = "memorizing" | "decision";
 type CalibrationPhase = "preparing" | "measuring" | "ready" | "failed";
 
 const DEMO_TEXT = "Le petit renard traverse le jardin. Il s’arrête près des fleurs, puis écoute le vent dans les arbres.";
@@ -19,7 +19,7 @@ const CALIBRATION_MEASUREMENT_MS = 1500;
 export function DictaApp() {
   const [screen, setScreen] = useState<Screen>("setup");
   const [text, setText] = useState(DEMO_TEXT);
-  const [wordsPerFragment, setWordsPerFragment] = useState(5);
+  const [lettersPerFragment, setLettersPerFragment] = useState(30);
   const [cameraMode, setCameraMode] = useState<"camera" | "manual">("camera");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
@@ -46,10 +46,8 @@ export function DictaApp() {
   }, [cameraMode, phase, screen]);
 
   const fragments = useMemo(() => splitTextIntoFragments(text, {
-    targetWords: wordsPerFragment,
-    minWords: Math.min(3, wordsPerFragment),
-    maxWords: Math.min(10, wordsPerFragment + 2),
-  }), [text, wordsPerFragment]);
+    targetLetters: lettersPerFragment,
+  }), [lettersPerFragment, text]);
   const totalReviews = reviewCounts.reduce((sum, value) => sum + value, 0);
   const keepCameraMounted = cameraMode === "camera" && screen !== "setup" && screen !== "summary";
 
@@ -134,8 +132,7 @@ export function DictaApp() {
       // Missing face is published as "notebook" by the detector. Never gate
       // this transition on a previous screen reading: leaving the frame must
       // hide the text immediately.
-      if (phaseRef.current === "memorizing" && (!reading.faceDetected || reading.state === "notebook")) setPhase("writing");
-      if (phaseRef.current === "writing" && reading.state === "screen") setPhase("decision");
+      if (phaseRef.current === "memorizing" && (!reading.faceDetected || reading.state === "notebook")) setPhase("decision");
     });
 
     const openCamera = async () => {
@@ -164,7 +161,7 @@ export function DictaApp() {
     const watchdog = window.setInterval(() => {
       // If MediaPipe or the video loop stops answering, fail closed instead of
       // preserving the last optimistic "screen" state forever.
-      if (Date.now() - lastCameraReadingAtRef.current > 1200) setPhase("writing");
+      if (Date.now() - lastCameraReadingAtRef.current > 1200) setPhase("decision");
     }, 250);
     return () => window.clearInterval(watchdog);
   }, [cameraMode, phase, screen]);
@@ -211,8 +208,7 @@ export function DictaApp() {
     setReviewCounts(Array(fragments.length).fill(0));
   };
 
-  const hideFragment = () => setPhase("writing");
-  const showDecision = () => setPhase("decision");
+  const hideFragment = () => setPhase("decision");
 
   const review = () => {
     setReviewCounts((counts) => counts.map((count, index) => index === fragmentIndex ? count + 1 : count));
@@ -255,11 +251,11 @@ export function DictaApp() {
             <label className="field-label" htmlFor="dictation">Texte de la dictée <span>{text.trim().split(/\s+/).filter(Boolean).length} mots</span></label>
             <textarea id="dictation" className="text-input" value={text} onChange={(event) => setText(event.target.value)} />
             <div className="settings-row">
-              <div><strong>Mots par étape</strong><div className="muted">Environ {fragments.length} fragments</div></div>
+              <div><strong>Lettres par étape</strong><div className="muted">Arrondi au mot supérieur · Environ {fragments.length} fragments</div></div>
               <div className="stepper">
-                <button aria-label="Réduire" onClick={() => setWordsPerFragment((value) => Math.max(2, value - 1))}>−</button>
-                <strong>{wordsPerFragment}</strong>
-                <button aria-label="Augmenter" onClick={() => setWordsPerFragment((value) => Math.min(9, value + 1))}>+</button>
+                <button aria-label="Réduire le nombre de lettres" onClick={() => setLettersPerFragment((value) => Math.max(10, value - 5))}>−</button>
+                <strong>{lettersPerFragment}</strong>
+                <button aria-label="Augmenter le nombre de lettres" onClick={() => setLettersPerFragment((value) => Math.min(60, value + 5))}>+</button>
               </div>
             </div>
             <button className="primary-button" disabled={!text.trim() || cameraLoading} onClick={startCamera}>{cameraLoading ? "Préparation de la caméra…" : "Préparer la caméra"}</button>
@@ -325,16 +321,8 @@ export function DictaApp() {
               <>
                 <div className="status-pill" data-tone={attention === "unknown" ? "unknown" : undefined}><span className="pulse-dot" />{cameraMode === "manual" ? "Mode manuel" : attention === "screen" ? "Regard détecté" : "Analyse du regard"}</div>
                 <div className="fragment">{fragments[fragmentIndex]}</div>
-                <p className="stage-help">Mémorise ces mots, puis regarde ton cahier.</p>
+                <p className="stage-help">Mémorise ces mots, puis écris-les sur ton cahier.</p>
                 <button className="manual-hide" onClick={hideFragment}>{cameraMode === "camera" ? "Masquer maintenant" : "J’ai mémorisé"}</button>
-              </>
-            )}
-            {phase === "writing" && (
-              <>
-                <div className="status-pill" data-tone="writing"><span className="pulse-dot" />Texte caché</div>
-                <div className="hidden-fragment" aria-label="Texte masqué" />
-                <p className="stage-help">Écris les mots sur ton cahier. Relève les yeux quand tu as terminé.</p>
-                <button className="primary-button" onClick={showDecision}>J’ai relevé les yeux</button>
               </>
             )}
             {phase === "decision" && (
