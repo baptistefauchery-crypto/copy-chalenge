@@ -350,7 +350,7 @@ export function DictaApp() {
             <div className="progress-label"><span>Étape {fragmentIndex + 1} sur {fragments.length}</span><span>{Math.round(((fragmentIndex + 1) / fragments.length) * 100)} %</span></div>
             <div className="progress-track"><div className="progress-bar" style={{ width: `${((fragmentIndex + 1) / fragments.length) * 100}%` }} /></div>
           </div>
-          <div className="card stage-card">
+          <div className={`card stage-card ${phase === "memorizing" ? "gaze-target-card" : ""}`}>
             {phase === "memorizing" && (
               <>
                 <div className="status-pill" data-tone={attention === "unknown" ? "unknown" : undefined}><span className="pulse-dot" />{cameraMode === "manual" ? "Mode manuel" : attention === "screen" ? "Regard détecté" : "Analyse du regard"}</div>
