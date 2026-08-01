@@ -14,6 +14,18 @@ export const FEATURE_KEYS = [
   "rightEyeOpen",
 ] as const satisfies readonly (keyof AttentionFeatures)[];
 
+// Looking down changes head pitch and iris position more reliably than blink or
+// eye-opening measurements, so the classifier gives those signals more weight.
+const FEATURE_WEIGHTS: Record<(typeof FEATURE_KEYS)[number], number> = {
+  headPitch: 1.5,
+  headYaw: 0.6,
+  leftIrisY: 1.35,
+  rightIrisY: 1.35,
+  leftEyeOpen: 0.35,
+  rightEyeOpen: 0.35,
+};
+const FEATURE_WEIGHT_TOTAL = FEATURE_KEYS.reduce((sum, key) => sum + FEATURE_WEIGHTS[key], 0);
+
 export function summarizeSamples(samples: readonly AttentionFeatures[]): CalibrationSample {
   if (samples.length < 5) throw new Error("Calibration requires at least 5 valid face samples.");
   const mean = Object.fromEntries(
@@ -32,9 +44,9 @@ function distanceTo(sample: AttentionFeatures, target: CalibrationSample, other:
   const squared = FEATURE_KEYS.reduce((sum, key) => {
     // Pool both calibration variances and keep a noise floor to avoid unstable weights.
     const scale = Math.max((target.deviation[key] + other.deviation[key]) / 2, 0.025);
-    return sum + ((sample[key] - target.mean[key]) / scale) ** 2;
+    return sum + FEATURE_WEIGHTS[key] * ((sample[key] - target.mean[key]) / scale) ** 2;
   }, 0);
-  return Math.sqrt(squared / FEATURE_KEYS.length);
+  return Math.sqrt(squared / FEATURE_WEIGHT_TOTAL);
 }
 
 export function createCalibration(

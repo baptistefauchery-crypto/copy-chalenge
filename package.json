@@ -9,8 +9,8 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "npm run build && node --import tsx --test tests/domain.test.ts && node --test tests/rendered-html.test.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
+    "test": "npm run build && node --import tsx --test tests/domain.test.ts tests/vision.test.ts && node --test tests/rendered-html.test.mjs",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",

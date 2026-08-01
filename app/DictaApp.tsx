@@ -10,8 +10,12 @@ import {
 
 type Screen = "setup" | "placement" | "calibration-screen" | "calibration-notebook" | "session" | "summary";
 type SessionPhase = "memorizing" | "writing" | "decision";
+type CalibrationPhase = "preparing" | "measuring" | "ready";
 
 const DEMO_TEXT = "Le petit renard traverse le jardin. Il s’arrête près des fleurs, puis écoute le vent dans les arbres.";
+const CALIBRATION_PREPARATION_MS = { screen: 2000, notebook: 5000 } as const;
+const CALIBRATION_MEASUREMENT_MS = 3000;
+const MIN_CALIBRATION_QUALITY = 0.85;
 
 export function DictaApp() {
   const [screen, setScreen] = useState<Screen>("setup");
@@ -22,7 +26,7 @@ export function DictaApp() {
   const [cameraLoading, setCameraLoading] = useState(false);
   const [attention, setAttention] = useState<AttentionState>("unknown");
   const [faceDetected, setFaceDetected] = useState(false);
-  const [calibrationReady, setCalibrationReady] = useState(false);
+  const [calibrationPhase, setCalibrationPhase] = useState<CalibrationPhase>("preparing");
   const [phase, setPhase] = useState<SessionPhase>("memorizing");
   const [fragmentIndex, setFragmentIndex] = useState(0);
   const [reviewCounts, setReviewCounts] = useState<number[]>([]);
@@ -112,9 +116,16 @@ export function DictaApp() {
     if (cameraMode !== "camera" || !detectorRef.current) return;
     if (screen !== "calibration-screen" && screen !== "calibration-notebook") return;
     const target = screen === "calibration-screen" ? "screen" : "notebook";
-    detectorRef.current.beginCalibration(target);
-    const timer = window.setTimeout(() => setCalibrationReady(true), 2500);
-    return () => window.clearTimeout(timer);
+    const preparationTimer = window.setTimeout(() => {
+      detectorRef.current?.beginCalibration(target);
+      setCalibrationPhase("measuring");
+      measurementTimer = window.setTimeout(() => setCalibrationPhase("ready"), CALIBRATION_MEASUREMENT_MS);
+    }, CALIBRATION_PREPARATION_MS[target]);
+    let measurementTimer: number | undefined;
+    return () => {
+      window.clearTimeout(preparationTimer);
+      if (measurementTimer !== undefined) window.clearTimeout(measurementTimer);
+    };
   }, [cameraMode, screen]);
 
   const beginManual = () => {
@@ -138,15 +149,15 @@ export function DictaApp() {
     }
     if (target === "notebook") {
       const calibration = detectorRef.current?.getCalibration();
-      if (!calibration || calibration.quality < 1.25) {
-        setCalibrationReady(false);
+      if (!calibration || calibration.quality < MIN_CALIBRATION_QUALITY) {
+        setCalibrationPhase("preparing");
         setToast("Les deux regards sont trop proches. Recommençons.");
         setScreen("placement");
         return false;
       }
     }
     setToast("Mesure enregistrée");
-    setCalibrationReady(false);
+    setCalibrationPhase("preparing");
     window.setTimeout(() => setScreen(next), 450);
     return true;
   };
@@ -236,7 +247,7 @@ export function DictaApp() {
               </div>
             </div>
             <div className="placement-tip"><span className="placement-tip-icon" aria-hidden="true">◎</span><span>Centre ton visage dans le cadre, puis garde le téléphone bien droit.</span></div>
-            <button className="primary-button" disabled={!faceDetected || cameraLoading} onClick={() => { setCalibrationReady(false); setScreen("calibration-screen"); }}>{faceDetected ? "Mon visage est bien placé" : "Recherche du visage…"}</button>
+            <button className="primary-button" disabled={!faceDetected || cameraLoading} onClick={() => { setCalibrationPhase("preparing"); setScreen("calibration-screen"); }}>{faceDetected ? "Mon visage est bien placé" : "Recherche du visage…"}</button>
             <button className="manual-hide" onClick={beginManual}>Utiliser le mode manuel</button>
           </div>
         </section>
@@ -247,7 +258,12 @@ export function DictaApp() {
           <div className="hero"><div className="eyebrow">Calibration · 1 sur 2</div><h1>Regarde le point.</h1><p>Garde la tête tranquille et regarde le centre de l’écran pendant quelques secondes.</p></div>
           <div className="card stage-card">
             <div className="summary-number">●</div>
-            <button className="primary-button" disabled={!calibrationReady} onClick={() => runCalibrationStep("calibration-notebook")}>{calibrationReady ? "Continuer" : "Mesure en cours…"}</button>
+            <p className="stage-help calibration-help">
+              {calibrationPhase === "preparing" ? "Regarde le point. La mesure va commencer dans un instant." : calibrationPhase === "measuring" ? "Garde les yeux sur le point encore un instant." : "La mesure est terminée."}
+            </p>
+            <button className="primary-button" disabled={calibrationPhase !== "ready"} onClick={() => runCalibrationStep("calibration-notebook")}>
+              {calibrationPhase === "ready" ? "Continuer" : calibrationPhase === "preparing" ? "Prépare-toi…" : "Mesure en cours…"}
+            </button>
           </div>
         </section>
       )}
@@ -257,7 +273,12 @@ export function DictaApp() {
           <div className="hero"><div className="eyebrow">Calibration · 2 sur 2</div><h1>Regarde ton cahier.</h1><p>Baisse les yeux vers l’endroit où tu vas écrire, sans déplacer le téléphone.</p></div>
           <div className="card stage-card">
             <div className="summary-number">↓</div>
-            <button className="primary-button" disabled={!calibrationReady} onClick={() => { if (runCalibrationStep("session")) startSession(); }}>{calibrationReady ? "Commencer la dictée" : "Mesure en cours…"}</button>
+            <p className="stage-help calibration-help">
+              {calibrationPhase === "preparing" ? "Baisse les yeux maintenant. La mesure commencera dans quelques secondes." : calibrationPhase === "measuring" ? "Garde les yeux sur ton cahier encore un instant." : "La mesure est terminée."}
+            </p>
+            <button className="primary-button" disabled={calibrationPhase !== "ready"} onClick={() => { if (runCalibrationStep("session")) startSession(); }}>
+              {calibrationPhase === "ready" ? "Commencer la dictée" : calibrationPhase === "preparing" ? "Prépare-toi…" : "Mesure en cours…"}
+            </button>
           </div>
         </section>
       )}
