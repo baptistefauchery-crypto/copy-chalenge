@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
-import { getDictation, getLevel, PRIMARY_LEVELS, splitTextIntoFragments, type PrimaryLevel } from "./lib/domain";
+import {
+  calculateScore,
+  getDictation,
+  getLevel,
+  LEADERBOARD_STORAGE_KEY,
+  PRIMARY_LEVELS,
+  sortLeaderboard,
+  splitTextIntoFragments,
+  type LeaderboardEntry,
+  type PrimaryLevel,
+} from "./lib/domain";
 import {
   MediaPipeAttentionDetector,
   type AttentionDetector,
@@ -53,6 +63,30 @@ const INITIAL_CURSORS: Record<PrimaryLevel, number> = {
 };
 const NEXT_DICTATION_OPTION = "__next_dictation__";
 
+function readStoredLeaderboard(): LeaderboardEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(LEADERBOARD_STORAGE_KEY) ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    const entries = parsed.filter((entry): entry is LeaderboardEntry => {
+      if (!entry || typeof entry !== "object") return false;
+      const candidate = entry as Record<string, unknown>;
+      return typeof candidate.id === "string" && typeof candidate.score === "number" && typeof candidate.createdAt === "number";
+    });
+    return sortLeaderboard(entries);
+  } catch {
+    return [];
+  }
+}
+
+function persistLeaderboard(entries: readonly LeaderboardEntry[]) {
+  try {
+    window.localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(entries));
+  } catch {
+    // The score remains available for the current session when storage is blocked.
+  }
+}
+
 export function DictaApp() {
   const [screen, setScreen] = useState<Screen>("setup");
   const [selectedLevel, setSelectedLevel] = useState<PrimaryLevel>(INITIAL_LEVEL);
@@ -69,6 +103,10 @@ export function DictaApp() {
   const [phase, setPhase] = useState<SessionPhase>("memorizing");
   const [fragmentIndex, setFragmentIndex] = useState(0);
   const [reviewCounts, setReviewCounts] = useState<number[]>([]);
+  const [summaryScore, setSummaryScore] = useState<number | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(readStoredLeaderboard);
+  const [currentScoreId, setCurrentScoreId] = useState<string | null>(null);
+  const [isNewBestScore, setIsNewBestScore] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const detectorRef = useRef<AttentionDetector | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -78,6 +116,7 @@ export function DictaApp() {
   const cameraModeRef = useRef(cameraMode);
   const lastCameraReadingAtRef = useRef(0);
   const autoHideBlockedUntilRef = useRef(0);
+  const sessionStartedAtRef = useRef<number | null>(null);
   const dictationCursorsRef = useRef<Record<PrimaryLevel, number>>({ ...INITIAL_CURSORS });
 
   useEffect(() => {
@@ -247,6 +286,7 @@ export function DictaApp() {
         playCalibrationBeep();
         setFragmentIndex(0);
         setReviewCounts(Array(fragments.length).fill(0));
+        sessionStartedAtRef.current = Date.now();
         startAutoHideGracePeriod();
         setPhase("memorizing");
         setScreen("session");
@@ -274,6 +314,7 @@ export function DictaApp() {
     setPhase("memorizing");
     setFragmentIndex(0);
     setReviewCounts(Array(fragments.length).fill(0));
+    sessionStartedAtRef.current = Date.now();
     startAutoHideGracePeriod();
   };
 
@@ -285,10 +326,29 @@ export function DictaApp() {
     setPhase("memorizing");
   };
 
+  const finishSession = () => {
+    const elapsedMs = sessionStartedAtRef.current === null ? 1000 : Date.now() - sessionStartedAtRef.current;
+    const score = calculateScore(text, elapsedMs);
+    const entry: LeaderboardEntry = {
+      id: `${Date.now()}-${score}-${leaderboard.length}`,
+      score,
+      createdAt: Date.now(),
+    };
+    const previousBest = leaderboard[0]?.score ?? 0;
+    const nextLeaderboard = sortLeaderboard([...leaderboard, entry]);
+    setLeaderboard(nextLeaderboard);
+    persistLeaderboard(nextLeaderboard);
+    setSummaryScore(score);
+    setCurrentScoreId(entry.id);
+    setIsNewBestScore(score > previousBest);
+    sessionStartedAtRef.current = null;
+    stopCamera();
+    setScreen("summary");
+  };
+
   const next = () => {
     if (fragmentIndex >= fragments.length - 1) {
-      stopCamera();
-      setScreen("summary");
+      finishSession();
       return;
     }
     setFragmentIndex((value) => value + 1);
@@ -303,6 +363,10 @@ export function DictaApp() {
     setPhase("memorizing");
     setFragmentIndex(0);
     setReviewCounts([]);
+    setSummaryScore(null);
+    setCurrentScoreId(null);
+    setIsNewBestScore(false);
+    sessionStartedAtRef.current = null;
   };
 
   const prepareNextDictation = () => {
@@ -466,7 +530,33 @@ export function DictaApp() {
                 ))}
               </div>
             )}
-            <div className="summary-number">{fragments.length}</div><div className="muted">fragments écrits</div>
+            <div className={`summary-score ${isNewBestScore ? "summary-score-record" : ""}`}>{summaryScore ?? 0}</div>
+            <div className="muted">{isNewBestScore ? "Nouveau record !" : "score"}</div>
+            <div className="leaderboard" aria-label="Classement des meilleurs scores">
+              <div className="leaderboard-heading"><strong>Classement</strong><span>Meilleurs scores</span></div>
+              {leaderboard.length === 0 ? (
+                <p className="leaderboard-empty">Ton score apparaîtra ici.</p>
+              ) : (
+                leaderboard.map((entry, index) => {
+                  const rank = index + 1;
+                  const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
+                  const isMedal = rank <= 3;
+                  return (
+                    <div className={`leaderboard-row ${entry.id === currentScoreId ? "leaderboard-current-row" : ""}`} key={entry.id}>
+                      <span
+                        className={`leaderboard-rank ${isMedal ? `medal medal-${rank}` : ""} ${isNewBestScore && isMedal ? "medal-celebration" : ""}`}
+                        style={isMedal ? { "--medal-delay": `${index * 130}ms` } as CSSProperties : undefined}
+                        aria-label={`Place ${rank}`}
+                      >
+                        {medal}
+                      </span>
+                      <strong className="leaderboard-score">{entry.score}</strong>
+                      {entry.id === currentScoreId && <span className="leaderboard-current">Toi</span>}
+                    </div>
+                  );
+                })
+              )}
+            </div>
             <div className="summary-grid">
               <div className="summary-stat"><strong>{totalReviews}</strong><span>relectures</span></div>
               <div className="summary-stat"><strong>{reviewCounts.filter(Boolean).length}</strong><span>fragments revus</span></div>

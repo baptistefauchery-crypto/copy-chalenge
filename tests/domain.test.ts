@@ -3,10 +3,12 @@ import test from "node:test";
 
 import {
   countLetters,
+  calculateScore,
   createSession,
   getDictation,
   PRIMARY_LEVELS,
   splitTextIntoFragments,
+  sortLeaderboard,
   totalReviews,
   transitionSession,
   type Exercise,
@@ -33,6 +35,21 @@ test("offers three deterministic dictations for every primary class", () => {
     assert.equal(afterCycle.index, 0);
     assert.equal(afterCycle.text, first.text);
   }
+});
+
+test("calculates a high score from elapsed time and letters only", () => {
+  assert.equal(calculateScore("Un joli mot", 12000), calculateScore("Douze mots", 12000));
+  assert.ok(calculateScore("Le chat dort", 30000) > 35);
+});
+
+test("keeps the leaderboard ordered and capped", () => {
+  const entries = sortLeaderboard([
+    { id: "low", score: 120, createdAt: 1 },
+    { id: "high", score: 820, createdAt: 2 },
+    { id: "middle", score: 420, createdAt: 3 },
+  ]);
+
+  assert.deepEqual(entries.map((entry) => entry.id), ["high", "middle", "low"]);
 });
 
 test("splits French text without losing words or punctuation", () => {
