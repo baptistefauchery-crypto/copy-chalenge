@@ -30,8 +30,10 @@ export function DictaApp() {
   const [fragmentIndex, setFragmentIndex] = useState(0);
   const [reviewCounts, setReviewCounts] = useState<number[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [calibrationSuccess, setCalibrationSuccess] = useState(false);
   const detectorRef = useRef<AttentionDetector | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const screenRef = useRef(screen);
   const phaseRef = useRef(phase);
   const cameraModeRef = useRef(cameraMode);
@@ -64,12 +66,52 @@ export function DictaApp() {
 
   useEffect(() => stopCamera, [stopCamera]);
 
+  const primeAudioFeedback = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    const AudioContextConstructor = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextConstructor) return null;
+    try {
+      const context = audioContextRef.current ?? new AudioContextConstructor();
+      audioContextRef.current = context;
+      void context.resume().catch(() => undefined);
+      return context;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const playCalibrationBeep = useCallback(() => {
+    const context = primeAudioFeedback();
+    if (!context) return;
+    const emit = () => {
+      const now = context.currentTime;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(880, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(now);
+      oscillator.stop(now + 0.22);
+    };
+    if (context.state === "suspended") void context.resume().then(emit).catch(() => undefined);
+    else emit();
+  }, [primeAudioFeedback]);
+
+  useEffect(() => () => {
+    void audioContextRef.current?.close();
+    audioContextRef.current = null;
+  }, []);
+
   const startCamera = useCallback(() => {
+    primeAudioFeedback();
     setCameraError(null);
     setCameraLoading(true);
     setCameraMode("camera");
     setScreen("placement");
-  }, []);
+  }, [primeAudioFeedback]);
 
   useEffect(() => {
     if (screen !== "placement" || !cameraLoading || detectorRef.current) return;
@@ -115,17 +157,26 @@ export function DictaApp() {
     if (cameraMode !== "camera" || !detectorRef.current) return;
     if (screen !== "calibration-screen" && screen !== "calibration-notebook") return;
     const target = screen === "calibration-screen" ? "screen" : "notebook";
+    let measurementTimer: number | undefined;
+    let feedbackTimer: number | undefined;
+    const finishMeasurement = () => {
+      setCalibrationPhase("ready");
+      if (target !== "notebook") return;
+      setCalibrationSuccess(true);
+      playCalibrationBeep();
+      feedbackTimer = window.setTimeout(() => setCalibrationSuccess(false), 500);
+    };
     const preparationTimer = window.setTimeout(() => {
       detectorRef.current?.beginCalibration(target);
       setCalibrationPhase("measuring");
-      measurementTimer = window.setTimeout(() => setCalibrationPhase("ready"), CALIBRATION_MEASUREMENT_MS);
+      measurementTimer = window.setTimeout(finishMeasurement, CALIBRATION_MEASUREMENT_MS);
     }, CALIBRATION_PREPARATION_MS[target]);
-    let measurementTimer: number | undefined;
     return () => {
       window.clearTimeout(preparationTimer);
       if (measurementTimer !== undefined) window.clearTimeout(measurementTimer);
+      if (feedbackTimer !== undefined) window.clearTimeout(feedbackTimer);
     };
-  }, [cameraMode, screen]);
+  }, [cameraMode, playCalibrationBeep, screen]);
 
   const beginManual = () => {
     stopCamera();
@@ -246,7 +297,7 @@ export function DictaApp() {
               </div>
             </div>
             <div className="placement-tip"><span className="placement-tip-icon" aria-hidden="true">◎</span><span>Centre ton visage dans le cadre, puis garde le téléphone bien droit.</span></div>
-            <button className="primary-button" disabled={!faceDetected || cameraLoading} onClick={() => { setCalibrationPhase("preparing"); setScreen("calibration-screen"); }}>{faceDetected ? "Mon visage est bien placé" : "Recherche du visage…"}</button>
+            <button className="primary-button" disabled={!faceDetected || cameraLoading} onClick={() => { primeAudioFeedback(); setCalibrationPhase("preparing"); setScreen("calibration-screen"); }}>{faceDetected ? "Mon visage est bien placé" : "Recherche du visage…"}</button>
             <button className="manual-hide" onClick={beginManual}>Utiliser le mode manuel</button>
           </div>
         </section>
@@ -333,6 +384,12 @@ export function DictaApp() {
         </section>
       )}
 
+      {calibrationSuccess && (
+        <div className="calibration-success" role="status" aria-live="assertive">
+          <span className="calibration-success-mark" aria-hidden="true">✓</span>
+          <span>Tu peux relever les yeux</span>
+        </div>
+      )}
       {toast && <div className="toast" role="status">{toast}</div>}
     </main>
   );
