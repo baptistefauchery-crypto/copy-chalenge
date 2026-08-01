@@ -99,6 +99,14 @@ test("accepts low-confidence notebook evidence to leave the screen sooner", () =
   assert.equal(stabilizer.update("notebook", 0.13, 700), "notebook");
 });
 
+test("waits slightly longer before confirming a return to the screen", () => {
+  const stabilizer = new AttentionStabilizer({ returnScreenMs: 700 });
+
+  assert.equal(stabilizer.update("screen", 1, 0), "unknown");
+  assert.equal(stabilizer.update("screen", 1, 600), "unknown");
+  assert.equal(stabilizer.update("screen", 1, 700), "screen");
+});
+
 test("leaving the camera frame immediately exits the screen state", () => {
   const stabilizer = new AttentionStabilizer({ returnScreenMs: 100 });
   stabilizer.update("screen", 1, 0);

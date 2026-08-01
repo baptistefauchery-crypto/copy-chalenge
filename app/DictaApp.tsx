@@ -151,7 +151,7 @@ export function DictaApp() {
     const detector = new MediaPipeAttentionDetector({
       analysisFps: 10,
       enterNotebookMs: 220,
-      returnScreenMs: 600,
+      returnScreenMs: 700,
       wasmPath: "/mediapipe/wasm",
       modelAssetPath: "/models/face_landmarker.task",
     });

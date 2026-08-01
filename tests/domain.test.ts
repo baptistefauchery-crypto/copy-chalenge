@@ -22,6 +22,7 @@ const exercise: Exercise = {
 
 test("offers three deterministic dictations for every primary class", () => {
   assert.deepEqual(PRIMARY_LEVELS.map((level) => level.id), ["CP", "CE1", "CE2", "CM1", "CM2"]);
+  assert.deepEqual(PRIMARY_LEVELS.map((level) => level.recommendedLetters), [6, 8, 10, 12, 14]);
 
   for (const level of PRIMARY_LEVELS) {
     assert.ok(level.dictations.length >= 3);
