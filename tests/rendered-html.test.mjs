@@ -69,8 +69,14 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(dictaApp, /totalReviews < 3/);
   assert.match(dictaApp, /calculateScore/);
   assert.match(dictaApp, /LEADERBOARD_STORAGE_KEY/);
+  assert.match(dictaApp, /calibration-dictation/);
+  assert.match(dictaApp, /J&apos;ai lu/);
+  assert.doesNotMatch(dictaApp, /Regardez la caméra/);
+  assert.doesNotMatch(dictaApp, /Arrondi au mot supérieur/);
   assert.match(scoring, /export function calculateScore/);
   assert.match(globals, /confetti-fall 6\.5s/);
+  assert.match(globals, /confetti-from-left/);
+  assert.match(globals, /confetti-from-right/);
   assert.match(globals, /summary-shell/);
   assert.match(globals, /summary-score-bounce/);
 });

@@ -26,13 +26,18 @@ const CALIBRATION_PREPARATION_MS = 2000;
 const CALIBRATION_MEASUREMENT_MS = 1500;
 const AUTO_HIDE_GRACE_MS = 2000;
 const CONFETTI_COLORS = ["#ef765f", "#6654d9", "#58a37c", "#f3b34f"] as const;
-const CONFETTI_PIECES = Array.from({ length: 56 }, (_, index) => ({
-  left: `${5 + ((index * 19) % 90)}%`,
-  delay: `${(index % 16) * 240 + Math.floor(index / 16) * 180}ms`,
-  drift: `${((index * 31) % 70) - 35}px`,
-  rotate: `${((index * 47) % 60) - 30}deg`,
-  color: CONFETTI_COLORS[index % CONFETTI_COLORS.length],
-}));
+const CONFETTI_PIECES = Array.from({ length: 56 }, (_, index) => {
+  const origin = index % 6 === 0 ? "left" : index % 6 === 1 ? "right" : "top";
+  return {
+    origin,
+    left: origin === "left" ? "-12px" : origin === "right" ? "calc(100% + 12px)" : `${5 + ((index * 19) % 90)}%`,
+    top: origin === "top" ? "-18px" : `${18 + ((index * 23) % 58)}%`,
+    delay: `${(index % 16) * 240 + Math.floor(index / 16) * 180}ms`,
+    drift: `${((index * 31) % 70) - 35}px`,
+    rotate: `${((index * 47) % 60) - 30}deg`,
+    color: CONFETTI_COLORS[index % CONFETTI_COLORS.length],
+  };
+});
 
 const INITIAL_LEVEL: PrimaryLevel = "CP";
 const INITIAL_DICTATION = getDictation(INITIAL_LEVEL, 0);
@@ -99,6 +104,7 @@ export function DictaApp() {
   const lastCameraReadingAtRef = useRef(0);
   const autoHideBlockedUntilRef = useRef(0);
   const sessionStartedAtRef = useRef<number | null>(null);
+  const calibrationReadConfirmedRef = useRef(false);
   const dictationCursorsRef = useRef<Record<PrimaryLevel, number>>({ ...INITIAL_CURSORS });
 
   useEffect(() => {
@@ -130,9 +136,9 @@ export function DictaApp() {
     chooseNextDictation(event.target.value as PrimaryLevel);
   };
 
-  const startAutoHideGracePeriod = () => {
+  const startAutoHideGracePeriod = useCallback(() => {
     autoHideBlockedUntilRef.current = Date.now() + AUTO_HIDE_GRACE_MS;
-  };
+  }, []);
 
   const setLetterTarget = (value: number) => {
     if (!Number.isFinite(value)) return;
@@ -254,6 +260,15 @@ export function DictaApp() {
     return () => window.clearInterval(watchdog);
   }, [cameraMode, phase, screen]);
 
+  const startCameraSession = useCallback(() => {
+    setFragmentIndex(0);
+    setReviewCounts(Array(fragments.length).fill(0));
+    sessionStartedAtRef.current = Date.now();
+    startAutoHideGracePeriod();
+    setPhase("memorizing");
+    setScreen("session");
+  }, [fragments.length, startAutoHideGracePeriod]);
+
   useEffect(() => {
     if (cameraMode !== "camera" || !detectorRef.current) return;
     if (screen !== "calibration-screen") return;
@@ -266,12 +281,7 @@ export function DictaApp() {
         detectorRef.current?.finishCalibration("screen");
         setCalibrationPhase("ready");
         playCalibrationBeep();
-        setFragmentIndex(0);
-        setReviewCounts(Array(fragments.length).fill(0));
-        sessionStartedAtRef.current = Date.now();
-        startAutoHideGracePeriod();
-        setPhase("memorizing");
-        setScreen("session");
+        if (calibrationReadConfirmedRef.current) startCameraSession();
       } catch {
         setCalibrationPhase("failed");
         setToast("Je n’ai pas assez vu ton visage. Replace-toi puis réessaie.");
@@ -285,7 +295,12 @@ export function DictaApp() {
       window.clearTimeout(preparationTimer);
       if (measurementTimer !== undefined) window.clearTimeout(measurementTimer);
     };
-  }, [calibrationAttempt, cameraMode, fragments.length, playCalibrationBeep, screen]);
+  }, [calibrationAttempt, cameraMode, fragments.length, playCalibrationBeep, screen, startCameraSession]);
+
+  const confirmCalibrationRead = () => {
+    calibrationReadConfirmedRef.current = true;
+    if (calibrationPhase === "ready") startCameraSession();
+  };
 
   const beginManual = () => {
     stopCamera();
@@ -296,6 +311,7 @@ export function DictaApp() {
     setPhase("memorizing");
     setFragmentIndex(0);
     setReviewCounts(Array(fragments.length).fill(0));
+    calibrationReadConfirmedRef.current = false;
     sessionStartedAtRef.current = Date.now();
     startAutoHideGracePeriod();
   };
@@ -348,6 +364,7 @@ export function DictaApp() {
     setSummaryScore(null);
     setCurrentScoreId(null);
     setIsNewBestScore(false);
+    calibrationReadConfirmedRef.current = false;
     sessionStartedAtRef.current = null;
   };
 
@@ -390,7 +407,7 @@ export function DictaApp() {
               <span>Dictée {selectedDictation.index + 1} sur {selectedDictation.total} · {getLevel(selectedLevel).cycle} · {text.trim().split(/\s+/).filter(Boolean).length} mots</span>
             </div>
             <div className="settings-row">
-              <div><strong>Lettres par étape</strong><div className="muted">Arrondi au mot supérieur · Environ {fragments.length} fragments</div></div>
+              <div><strong>Lettres par étape</strong></div>
               <div className="stepper">
                 <button aria-label="Réduire le nombre de lettres" onClick={() => setLetterTarget(lettersPerFragment - 1)}>−</button>
                 <input
@@ -438,7 +455,7 @@ export function DictaApp() {
               </div>
             </div>
             <div className="placement-tip"><span className="placement-tip-icon" aria-hidden="true">◎</span><span>Centre ton visage dans le cadre, puis garde le téléphone bien droit.</span></div>
-            <button className="primary-button" disabled={!faceDetected || cameraLoading} onClick={() => { primeAudioFeedback(); detectorRef.current?.beginCalibration("screen"); setCalibrationPhase("preparing"); setScreen("calibration-screen"); }}>{faceDetected ? "Mon visage est bien placé" : "Recherche du visage…"}</button>
+            <button className="primary-button" disabled={!faceDetected || cameraLoading} onClick={() => { primeAudioFeedback(); calibrationReadConfirmedRef.current = false; detectorRef.current?.beginCalibration("screen"); setCalibrationPhase("preparing"); setScreen("calibration-screen"); }}>{faceDetected ? "Mon visage est bien placé" : "Recherche du visage…"}</button>
             <button className="manual-hide" onClick={beginManual}>Utiliser le mode manuel</button>
           </div>
         </section>
@@ -446,16 +463,24 @@ export function DictaApp() {
 
       {screen === "calibration-screen" && (
         <section className="session-shell calibration-shell">
-          <div className="card stage-card calibration-card" data-phase={calibrationPhase}>
+          <div className="card calibration-reading-card" data-phase={calibrationPhase}>
             {calibrationPhase === "failed" ? (
               <>
-                <div className="calibration-message" role="alert">Replace ton visage dans le champ de la caméra.</div>
-                <button className="primary-button" onClick={() => { detectorRef.current?.beginCalibration("screen"); setCalibrationPhase("preparing"); setCalibrationAttempt((value) => value + 1); }}>Réessayer</button>
+                <div className="eyebrow">Lis la dictée</div>
+                <div className="calibration-dictation">{text}</div>
+                <div className="calibration-reading-actions">
+                  <p className="calibration-error" role="alert">Replace ton visage dans le champ de la caméra.</p>
+                  <button className="secondary-button" onClick={() => { calibrationReadConfirmedRef.current = false; detectorRef.current?.beginCalibration("screen"); setCalibrationPhase("preparing"); setCalibrationAttempt((value) => value + 1); }}>Réessayer</button>
+                </div>
               </>
             ) : (
               <>
-                <div className="calibration-message" role="status" aria-live="polite">Regardez la caméra</div>
-                <span className="sr-only">{calibrationPhase === "preparing" ? "La calibration commence dans deux secondes." : "Calibration en cours."}</span>
+                <div className="eyebrow">Lis la dictée</div>
+                <div className="calibration-dictation">{text}</div>
+                <div className="calibration-reading-actions">
+                  <p className="calibration-reading-help">Lis toute la dictée, puis appuie quand tu as terminé.</p>
+                  <button className="primary-button" onClick={confirmCalibrationRead}>J&apos;ai lu</button>
+                </div>
               </>
             )}
           </div>
@@ -498,9 +523,10 @@ export function DictaApp() {
               {CONFETTI_PIECES.map((piece, index) => (
                 <span
                   key={`${piece.left}-${index}`}
-                  className="confetti-piece"
+                  className={`confetti-piece confetti-piece-${piece.origin}`}
                   style={{
                     "--confetti-left": piece.left,
+                    "--confetti-top": piece.top,
                     "--confetti-delay": piece.delay,
                     "--confetti-drift": piece.drift,
                     "--confetti-rotate": piece.rotate,
