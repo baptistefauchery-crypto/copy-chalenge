@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import {
   calculateScore,
   getDictation,
@@ -47,7 +47,6 @@ const INITIAL_CURSORS: Record<PrimaryLevel, number> = {
   CM1: 0,
   CM2: 0,
 };
-const NEXT_DICTATION_OPTION = "__next_dictation__";
 const DICTATION_PROGRESS_STORAGE_KEY = "copy-challenge-dictation-progress-v1";
 const DICTATION_PROGRESS_EVENT = "copy-challenge-dictation-progress";
 
@@ -141,6 +140,66 @@ function persistLeaderboard(entries: readonly LeaderboardEntry[]) {
   }
 }
 
+function LevelPicker({ selectedLevel, onSelect }: { selectedLevel: PrimaryLevel; onSelect: (level: PrimaryLevel) => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setIsOpen(false);
+    };
+    const closeOnKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    document.addEventListener("keydown", closeOnKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+      document.removeEventListener("keydown", closeOnKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div ref={menuRef} className="level-picker" data-level={selectedLevel}>
+      <button
+        id="level-select"
+        className="level-trigger"
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls="level-menu"
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        <span className="level-trigger-copy">
+          <span className="level-trigger-kicker">Niveau de classe</span>
+          <strong>{getLevel(selectedLevel).label}</strong>
+        </span>
+        <span className={`level-chevron ${isOpen ? "is-open" : ""}`} aria-hidden="true">⌄</span>
+      </button>
+      {isOpen && (
+        <div id="level-menu" className="level-menu" role="listbox" aria-label="Choisir une classe">
+          {PRIMARY_LEVELS.map((level) => (
+            <button
+              key={level.id}
+              className="level-option"
+              type="button"
+              role="option"
+              aria-selected={level.id === selectedLevel}
+              data-level={level.id}
+              onClick={() => { setIsOpen(false); onSelect(level.id); }}
+            >
+              <span className="level-option-dot" aria-hidden="true" />
+              <span className="level-option-copy"><strong>{level.label}</strong><small>{level.cycle}</small></span>
+              {level.id === selectedLevel && <span className="level-option-check" aria-hidden="true">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DictaApp() {
   const dictationProgressSnapshot = useSyncExternalStore(subscribeToDictationProgress, getDictationProgressSnapshot, () => "");
   const storedDictationProgress = parseStoredDictationProgress(dictationProgressSnapshot);
@@ -200,12 +259,8 @@ export function DictaApp() {
     });
   };
 
-  const selectLevel = (event: ChangeEvent<HTMLSelectElement>) => {
-    if (event.target.value === NEXT_DICTATION_OPTION) {
-      chooseNextDictation(selectedLevel);
-      return;
-    }
-    chooseNextDictation(event.target.value as PrimaryLevel);
+  const selectLevel = (level: PrimaryLevel) => {
+    chooseNextDictation(level);
   };
 
   const startAutoHideGracePeriod = useCallback(() => {
@@ -508,12 +563,8 @@ export function DictaApp() {
               <label className="field-label" htmlFor="level-select">Niveau de classe</label>
               <span className="dictation-counter">Dictée {selectedDictation.index + 1} / {selectedDictation.total}</span>
             </div>
-            <select id="level-select" className="level-select" value={selectedLevel} onChange={selectLevel}>
-              {PRIMARY_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}
-              <option value={NEXT_DICTATION_OPTION}>Dictée suivante</option>
-            </select>
+            <LevelPicker selectedLevel={selectedLevel} onSelect={selectLevel} />
             <div className="dictation-meta">
-              <strong>{getLevel(selectedLevel).label}</strong>
               <span>Dictée {selectedDictation.index + 1} sur {selectedDictation.total} · {getLevel(selectedLevel).cycle} · {text.trim().split(/\s+/).filter(Boolean).length} mots</span>
             </div>
             <div className="settings-row">
