@@ -28,6 +28,7 @@ export function DictaApp() {
   const [reviewCounts, setReviewCounts] = useState<number[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const detectorRef = useRef<AttentionDetector | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const screenRef = useRef(screen);
   const phaseRef = useRef(phase);
   const cameraModeRef = useRef(cameraMode);
@@ -60,36 +61,52 @@ export function DictaApp() {
 
   useEffect(() => stopCamera, [stopCamera]);
 
-  const startCamera = useCallback(async () => {
+  const startCamera = useCallback(() => {
     setCameraError(null);
     setCameraLoading(true);
-    try {
-      const detector = new MediaPipeAttentionDetector({
-        analysisFps: 10,
-        enterNotebookMs: 300,
-        returnScreenMs: 500,
-        wasmPath: "/mediapipe/wasm",
-        modelAssetPath: "/models/face_landmarker.task",
-      });
-      detectorRef.current = detector;
-      detector.subscribe((reading) => {
-        setAttention(reading.state);
-        setFaceDetected(reading.faceDetected);
-        if (screenRef.current !== "session" || cameraModeRef.current !== "camera") return;
-        if (phaseRef.current === "memorizing" && reading.state === "notebook") setPhase("writing");
-        if (phaseRef.current === "writing" && reading.state === "screen") setPhase("decision");
-      });
-      await detector.start();
-      setCameraMode("camera");
-      setScreen("placement");
-    } catch {
-      detectorRef.current?.stop();
-      detectorRef.current = null;
-      setCameraError("La caméra n’est pas disponible. Vous pouvez continuer en mode manuel.");
-    } finally {
-      setCameraLoading(false);
-    }
+    setCameraMode("camera");
+    setScreen("placement");
   }, []);
+
+  useEffect(() => {
+    if (screen !== "placement" || !cameraLoading || detectorRef.current) return;
+    let cancelled = false;
+    const detector = new MediaPipeAttentionDetector({
+      analysisFps: 10,
+      enterNotebookMs: 300,
+      returnScreenMs: 500,
+      wasmPath: "/mediapipe/wasm",
+      modelAssetPath: "/models/face_landmarker.task",
+    });
+    detectorRef.current = detector;
+    detector.subscribe((reading) => {
+      setAttention(reading.state);
+      setFaceDetected(reading.faceDetected);
+      if (screenRef.current !== "session" || cameraModeRef.current !== "camera") return;
+      if (phaseRef.current === "memorizing" && reading.state === "notebook") setPhase("writing");
+      if (phaseRef.current === "writing" && reading.state === "screen") setPhase("decision");
+    });
+
+    const openCamera = async () => {
+      try {
+        if (!videoRef.current) throw new Error("The camera preview is not ready.");
+        await detector.start(videoRef.current);
+        if (cancelled) detector.stop();
+      } catch {
+        detector.stop();
+        if (cancelled) return;
+        detectorRef.current = null;
+        setCameraError("La caméra n’est pas disponible. Vous pouvez continuer en mode manuel.");
+        setCameraLoading(false);
+        setScreen("setup");
+      } finally {
+        if (!cancelled) setCameraLoading(false);
+      }
+    };
+
+    void openCamera();
+    return () => { cancelled = true; };
+  }, [cameraLoading, screen]);
 
   useEffect(() => {
     if (cameraMode !== "camera" || !detectorRef.current) return;
@@ -102,6 +119,7 @@ export function DictaApp() {
 
   const beginManual = () => {
     stopCamera();
+    setCameraLoading(false);
     setCameraMode("manual");
     setCameraError(null);
     setScreen("session");
@@ -160,6 +178,7 @@ export function DictaApp() {
 
   const reset = () => {
     stopCamera();
+    setCameraLoading(false);
     setScreen("setup");
     setPhase("memorizing");
     setFragmentIndex(0);
@@ -201,9 +220,23 @@ export function DictaApp() {
       {screen === "placement" && (
         <section className="session-shell">
           <div className="hero"><div className="eyebrow">Installation</div><h1>Place ton visage dans le repère.</h1><p>Pose le téléphone verticalement, à peu près à la longueur d’un bras.</p></div>
-          <div className="card setup-card">
-            <div className="calibration-visual"><div className="calibration-ring" /><div className="face-outline" /></div>
-            <button className="primary-button" disabled={!faceDetected} onClick={() => { setCalibrationReady(false); setScreen("calibration-screen"); }}>{faceDetected ? "Mon visage est bien placé" : "Recherche du visage…"}</button>
+          <div className="card setup-card placement-card">
+            <div className="camera-stage" data-ready={faceDetected ? "true" : "false"}>
+              <video ref={videoRef} className="camera-feed" autoPlay muted playsInline aria-label="Retour de la caméra" />
+              <div className="camera-shade" aria-hidden="true" />
+              <div className="face-guide" aria-hidden="true">
+                <span className="guide-corner top-left" />
+                <span className="guide-corner top-right" />
+                <span className="guide-corner bottom-left" />
+                <span className="guide-corner bottom-right" />
+              </div>
+              <div className="camera-status" aria-live="polite">
+                <span className="camera-status-dot" />
+                {cameraLoading ? "Ouverture de la caméra…" : faceDetected ? "Visage détecté" : "Place ton visage dans le cadre"}
+              </div>
+            </div>
+            <div className="placement-tip"><span className="placement-tip-icon" aria-hidden="true">◎</span><span>Centre ton visage dans le cadre, puis garde le téléphone bien droit.</span></div>
+            <button className="primary-button" disabled={!faceDetected || cameraLoading} onClick={() => { setCalibrationReady(false); setScreen("calibration-screen"); }}>{faceDetected ? "Mon visage est bien placé" : "Recherche du visage…"}</button>
             <button className="manual-hide" onClick={beginManual}>Utiliser le mode manuel</button>
           </div>
         </section>
