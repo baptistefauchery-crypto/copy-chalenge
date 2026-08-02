@@ -367,10 +367,20 @@ button { touch-action: manipulation; }
 .score-meter-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ef765f, #f3b34f 48%, #58a37c); transition: width .08s linear; }
 .score-reveal-label { width: 100%; display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
 .score-reveal-label strong { color: var(--ink); font-weight: 850; }
-.score-reward { min-height: 58px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 14px 0 0; }
-.score-stars { color: #f3b34f; font-size: 30px; line-height: 1; letter-spacing: 3px; text-shadow: 0 2px 8px rgba(243, 179, 79, .28); }
+.score-reward { min-height: 86px; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; margin: 14px 0 0; }
+.score-stars { color: #f3b34f; font-size: 60px; line-height: 1; letter-spacing: 3px; text-shadow: 0 2px 8px rgba(243, 179, 79, .28); }
 .score-badge { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 999px; background: rgba(255, 255, 255, .78); color: var(--ink); font-size: 12px; font-weight: 800; box-shadow: 0 6px 16px rgba(37, 35, 59, .08); }
-.score-badge > span:first-child { font-size: 24px; line-height: 1; }
+.score-badge > span:first-child { font-size: 48px; line-height: 1; }
+.score-reward-featured { position: absolute; top: 50%; left: 50%; z-index: 4; min-height: 0; margin: 0; padding: 24px 28px; border: 1px solid rgba(102, 84, 217, .18); border-radius: 32px; background: rgba(255, 255, 255, .96); box-shadow: 0 18px 48px rgba(37, 35, 59, .18); pointer-events: none; animation: score-reward-featured 2.4s cubic-bezier(.2, .85, .35, 1.15) both; }
+.score-reward-featured .score-stars { font-size: 88px; }
+.score-reward-featured .score-badge { font-size: 16px; padding: 10px 15px; }
+.score-reward-featured .score-badge > span:first-child { font-size: 72px; }
+@keyframes score-reward-featured {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  36% { transform: translate(-50%, -50%) scale(.98); }
+  52%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
 .leaderboard { width: 100%; max-width: 360px; margin: 22px 0 8px; padding: 14px; border: 1px solid var(--line); border-radius: 22px; background: rgba(255, 255, 255, .64); }
 .leaderboard-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px 8px; }
 .leaderboard-heading strong { font-size: 15px; }

@@ -28,6 +28,7 @@ const CALIBRATION_PREPARATION_MS = 2000;
 const CALIBRATION_MEASUREMENT_MS = 1500;
 const AUTO_HIDE_GRACE_MS = 2000;
 const SCORE_REVEAL_DURATION_MS = 1800;
+const REWARD_FEATURE_DURATION_MS = 2400;
 const CONFETTI_COLORS = ["#ef765f", "#6654d9", "#58a37c", "#f3b34f"] as const;
 const CONFETTI_PIECES = Array.from({ length: 56 }, (_, index) => {
   const origin = index % 6 === 0 ? "left" : index % 6 === 1 ? "right" : "top";
@@ -229,6 +230,7 @@ export function DictaApp() {
   const [summaryScore, setSummaryScore] = useState<number | null>(null);
   const [revealedScore, setRevealedScore] = useState(0);
   const [isScoreRevealComplete, setIsScoreRevealComplete] = useState(false);
+  const [isRewardFeatured, setIsRewardFeatured] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(readStoredLeaderboard);
   const [currentScoreId, setCurrentScoreId] = useState<string | null>(null);
   const [isNewBestScore, setIsNewBestScore] = useState(false);
@@ -299,7 +301,9 @@ export function DictaApp() {
 
     setRevealedScore(0);
     setIsScoreRevealComplete(false);
+    setIsRewardFeatured(false);
     let animationFrame = 0;
+    let rewardTimer: number | undefined;
     let startedAt = 0;
 
     const revealScore = (timestamp: number) => {
@@ -313,11 +317,16 @@ export function DictaApp() {
       } else {
         setRevealedScore(summaryScore);
         setIsScoreRevealComplete(true);
+        setIsRewardFeatured(true);
+        rewardTimer = window.setTimeout(() => setIsRewardFeatured(false), REWARD_FEATURE_DURATION_MS);
       }
     };
 
     animationFrame = window.requestAnimationFrame(revealScore);
-    return () => window.cancelAnimationFrame(animationFrame);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      if (rewardTimer !== undefined) window.clearTimeout(rewardTimer);
+    };
   }, [screen, summaryScore]);
 
   const stopCamera = useCallback(() => {
@@ -342,6 +351,37 @@ export function DictaApp() {
       return null;
     }
   }, []);
+
+  const playScoreTrumpet = useCallback(() => {
+    const context = primeAudioFeedback();
+    if (!context) return;
+
+    const emit = () => {
+      const now = context.currentTime;
+      [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+        const start = now + index * 0.11;
+        const end = start + 0.24;
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = "sawtooth";
+        oscillator.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.11, start + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+        oscillator.connect(gain).connect(context.destination);
+        oscillator.start(start);
+        oscillator.stop(end);
+      });
+    };
+
+    if (context.state === "suspended") void context.resume().then(emit).catch(() => undefined);
+    else emit();
+  }, [primeAudioFeedback]);
+
+  useEffect(() => {
+    if (!isScoreRevealComplete || summaryScore === null || summaryScore <= 80) return;
+    playScoreTrumpet();
+  }, [isScoreRevealComplete, playScoreTrumpet, summaryScore]);
 
   const playCalibrationBeep = useCallback(() => {
     const context = primeAudioFeedback();
@@ -473,6 +513,7 @@ export function DictaApp() {
   };
 
   const beginManual = () => {
+    primeAudioFeedback();
     stopCamera();
     setCameraLoading(false);
     setCameraMode("manual");
@@ -532,6 +573,7 @@ export function DictaApp() {
     setSummaryScore(null);
     setRevealedScore(0);
     setIsScoreRevealComplete(false);
+    setIsRewardFeatured(false);
     setCurrentScoreId(null);
     setIsNewBestScore(false);
     calibrationReadConfirmedRef.current = false;
@@ -755,7 +797,7 @@ export function DictaApp() {
                 <div className="score-meter-fill" style={{ width: `${revealedScore}%` }} />
               </div>
               <div className="score-reveal-label"><span>Progression</span><strong>{revealedScore} / {MAX_SCORE}</strong></div>
-              <div className="score-reward" aria-live="polite">
+              <div className={`score-reward ${isRewardFeatured ? "score-reward-featured" : ""}`} aria-live="polite">
                 <span className="score-stars" role="img" aria-label={starsLabel}>{"★".repeat(scoreReward.stars)}</span>
                 {scoreBadge && (
                   <span className="score-badge" role="img" aria-label={scoreBadge.label}>

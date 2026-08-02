@@ -69,7 +69,10 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(offlineStatus, /setShowOfflineNotice\(false\)/);
   assert.match(dictaApp, /AUTO_HIDE_GRACE_MS = 2000/);
   assert.match(dictaApp, /SCORE_REVEAL_DURATION_MS = 1800/);
+  assert.match(dictaApp, /REWARD_FEATURE_DURATION_MS = 2400/);
   assert.match(dictaApp, /requestAnimationFrame/);
+  assert.match(dictaApp, /playScoreTrumpet/);
+  assert.match(dictaApp, /summaryScore <= 80/);
   assert.match(dictaApp, /isScoreRevealComplete/);
   assert.match(dictaApp, /score-meter/);
   assert.match(dictaApp, /progressColor/);
@@ -103,4 +106,5 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(globals, /summary-score-bounce/);
   assert.match(globals, /score-meter-fill/);
   assert.match(globals, /score-reward/);
+  assert.match(globals, /score-reward-featured/);
 });
