@@ -7,7 +7,8 @@ export interface LeaderboardEntry {
 export const LEADERBOARD_STORAGE_KEY = "copy-challenge-leaderboard-v1";
 export const MAX_SCORE = 100;
 const LEADERBOARD_LIMIT = 5;
-const TARGET_SECONDS_PER_LETTER = 1.2;
+const SCORE_POINTS_PER_LETTER = 80;
+const REVIEW_SCORE_MULTIPLIER = 0.8;
 
 export type ScoreBadge = "none" | "bronze" | "silver" | "gold" | "trophy";
 
@@ -26,8 +27,8 @@ export function calculateScore(text: string, elapsedMs: number, reviewCount = 0)
 
   const elapsedSeconds = Math.max(Number.isFinite(elapsedMs) ? elapsedMs / 1000 : 1, 1);
   const reviews = Number.isFinite(reviewCount) ? Math.max(0, reviewCount) : 0;
-  const reviewMultiplier = Math.pow(0.85, reviews);
-  const rawScore = (TARGET_SECONDS_PER_LETTER * letters * MAX_SCORE * reviewMultiplier) / elapsedSeconds;
+  const reviewMultiplier = Math.pow(REVIEW_SCORE_MULTIPLIER, reviews);
+  const rawScore = (letters * SCORE_POINTS_PER_LETTER * reviewMultiplier) / elapsedSeconds;
   return Math.min(MAX_SCORE, Math.max(0, Math.round(rawScore)));
 }
 

@@ -93,6 +93,8 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.doesNotMatch(dictaApp, /Arrondi au mot supérieur/);
   assert.match(scoring, /export function calculateScore/);
   assert.match(scoring, /MAX_SCORE = 100/);
+  assert.match(scoring, /SCORE_POINTS_PER_LETTER = 80/);
+  assert.match(scoring, /REVIEW_SCORE_MULTIPLIER = 0\.8/);
   assert.match(scoring, /export function getScoreReward/);
   assert.match(globals, /confetti-fall 6\.5s/);
   assert.match(globals, /confetti-from-left/);
