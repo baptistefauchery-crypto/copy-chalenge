@@ -5,7 +5,9 @@ import {
   calculateScore,
   getDictation,
   getLevel,
+  getScoreReward,
   LEADERBOARD_STORAGE_KEY,
+  MAX_SCORE,
   PRIMARY_LEVELS,
   sortLeaderboard,
   splitTextIntoFragments,
@@ -25,6 +27,7 @@ type CalibrationPhase = "preparing" | "measuring" | "ready" | "failed";
 const CALIBRATION_PREPARATION_MS = 2000;
 const CALIBRATION_MEASUREMENT_MS = 1500;
 const AUTO_HIDE_GRACE_MS = 2000;
+const SCORE_REVEAL_DURATION_MS = 1800;
 const CONFETTI_COLORS = ["#ef765f", "#6654d9", "#58a37c", "#f3b34f"] as const;
 const CONFETTI_PIECES = Array.from({ length: 56 }, (_, index) => {
   const origin = index % 6 === 0 ? "left" : index % 6 === 1 ? "right" : "top";
@@ -49,6 +52,12 @@ const INITIAL_CURSORS: Record<PrimaryLevel, number> = {
 };
 const DICTATION_PROGRESS_STORAGE_KEY = "copy-challenge-dictation-progress-v1";
 const DICTATION_PROGRESS_EVENT = "copy-challenge-dictation-progress";
+const SCORE_BADGE_COPY = {
+  bronze: { icon: "🥉", label: "Médaille de bronze" },
+  silver: { icon: "🥈", label: "Médaille d’argent" },
+  gold: { icon: "🥇", label: "Médaille d’or" },
+  trophy: { icon: "🏆", label: "Coupe en or" },
+} as const;
 
 interface StoredDictationProgress {
   level: PrimaryLevel;
@@ -218,6 +227,8 @@ export function DictaApp() {
   const [fragmentIndex, setFragmentIndex] = useState(0);
   const [reviewCounts, setReviewCounts] = useState<number[]>([]);
   const [summaryScore, setSummaryScore] = useState<number | null>(null);
+  const [revealedScore, setRevealedScore] = useState(0);
+  const [isScoreRevealComplete, setIsScoreRevealComplete] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(readStoredLeaderboard);
   const [currentScoreId, setCurrentScoreId] = useState<string | null>(null);
   const [isNewBestScore, setIsNewBestScore] = useState(false);
@@ -282,6 +293,32 @@ export function DictaApp() {
     const timer = window.setTimeout(() => setToast(null), 2600);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (screen !== "summary" || summaryScore === null) return;
+
+    setRevealedScore(0);
+    setIsScoreRevealComplete(false);
+    let animationFrame = 0;
+    let startedAt = 0;
+
+    const revealScore = (timestamp: number) => {
+      if (startedAt === 0) startedAt = timestamp;
+      const progress = Math.min(1, (timestamp - startedAt) / SCORE_REVEAL_DURATION_MS);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      setRevealedScore(Math.round(summaryScore * easedProgress));
+
+      if (progress < 1) {
+        animationFrame = window.requestAnimationFrame(revealScore);
+      } else {
+        setRevealedScore(summaryScore);
+        setIsScoreRevealComplete(true);
+      }
+    };
+
+    animationFrame = window.requestAnimationFrame(revealScore);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [screen, summaryScore]);
 
   const stopCamera = useCallback(() => {
     detectorRef.current?.stop();
@@ -493,6 +530,8 @@ export function DictaApp() {
     setFragmentIndex(0);
     setReviewCounts([]);
     setSummaryScore(null);
+    setRevealedScore(0);
+    setIsScoreRevealComplete(false);
     setCurrentScoreId(null);
     setIsNewBestScore(false);
     calibrationReadConfirmedRef.current = false;
@@ -506,6 +545,9 @@ export function DictaApp() {
   const progressRatio = fragments.length > 0 ? (fragmentIndex + 1) / fragments.length : 0;
   const progressPercent = Math.round(progressRatio * 100);
   const progressColor = `hsl(${Math.round(120 * Math.pow(progressRatio, 1.65))} 72% 52%)`;
+  const scoreReward = getScoreReward(revealedScore);
+  const scoreBadge = scoreReward.badge === "none" ? null : SCORE_BADGE_COPY[scoreReward.badge];
+  const starsLabel = scoreReward.stars === 0 ? "Aucune étoile" : `${scoreReward.stars} étoile${scoreReward.stars > 1 ? "s" : ""}`;
 
   return (
     <main className="app-shell">
@@ -679,7 +721,7 @@ export function DictaApp() {
 
       {screen === "summary" && (
         <section className="session-shell summary-shell">
-          {totalReviews < 3 && (
+          {isScoreRevealComplete && revealedScore > 0 && (
             <div className="confetti-field" aria-hidden="true">
               {CONFETTI_PIECES.map((piece, index) => (
                 <span
@@ -699,8 +741,30 @@ export function DictaApp() {
           )}
           <div className="hero"><h1>Bravo, c’est terminé !</h1></div>
           <div className="card stage-card summary-card">
-            <div className={`summary-score ${isNewBestScore ? "summary-score-record" : ""}`}>{summaryScore ?? 0}</div>
-            <div className="muted">{isNewBestScore ? "Nouveau record !" : "score"}</div>
+            <div className="score-reveal" aria-label={`Score ${revealedScore} sur ${MAX_SCORE}`}>
+              <div className={`summary-score ${isNewBestScore ? "summary-score-record" : ""}`} aria-live="polite">{revealedScore}</div>
+              <div className="muted">{isNewBestScore ? "Nouveau record !" : "score sur 100"}</div>
+              <div
+                className="score-meter"
+                role="progressbar"
+                aria-label="Progression du score"
+                aria-valuemin={0}
+                aria-valuemax={MAX_SCORE}
+                aria-valuenow={revealedScore}
+              >
+                <div className="score-meter-fill" style={{ width: `${revealedScore}%` }} />
+              </div>
+              <div className="score-reveal-label"><span>Progression</span><strong>{revealedScore} / {MAX_SCORE}</strong></div>
+              <div className="score-reward" aria-live="polite">
+                <span className="score-stars" role="img" aria-label={starsLabel}>{"★".repeat(scoreReward.stars)}</span>
+                {scoreBadge && (
+                  <span className="score-badge" role="img" aria-label={scoreBadge.label}>
+                    <span aria-hidden="true">{scoreBadge.icon}</span>
+                    <span>{scoreBadge.label}</span>
+                  </span>
+                )}
+              </div>
+            </div>
             <div className="leaderboard" aria-label="Classement des meilleurs scores">
               <div className="leaderboard-heading"><strong>Classement</strong><span>Meilleurs scores</span></div>
               {leaderboard.length === 0 ? (

@@ -7,6 +7,7 @@ import {
   createSession,
   getDictation,
   PRIMARY_LEVELS,
+  getScoreReward,
   splitTextIntoFragments,
   sortLeaderboard,
   totalReviews,
@@ -37,18 +38,33 @@ test("offers three deterministic dictations for every primary class", () => {
   }
 });
 
-test("calculates a high score and applies the requested adjustments", () => {
+test("keeps the score between zero and one hundred", () => {
   assert.equal(calculateScore("Un joli mot", 12000), calculateScore("Douze mots", 12000));
   assert.ok(calculateScore("Le chat dort", 30000) > 35);
   assert.ok(calculateScore("Un challenge plus long", 30000) > calculateScore("Un mot", 30000));
   assert.ok(calculateScore("Le chat dort", 30000, 1) < calculateScore("Le chat dort", 30000));
+  assert.equal(calculateScore("", 30000), 0);
+  assert.equal(calculateScore("Le chat dort", 1), 100);
+  assert.ok(calculateScore("Le chat dort", 30000) >= 0 && calculateScore("Le chat dort", 30000) <= 100);
+});
+
+test("assigns stars and awards at the requested score thresholds", () => {
+  assert.deepEqual(getScoreReward(19), { stars: 0, badge: "none" });
+  assert.deepEqual(getScoreReward(20), { stars: 1, badge: "none" });
+  assert.deepEqual(getScoreReward(40), { stars: 2, badge: "none" });
+  assert.deepEqual(getScoreReward(60), { stars: 3, badge: "none" });
+  assert.deepEqual(getScoreReward(70), { stars: 3, badge: "bronze" });
+  assert.deepEqual(getScoreReward(80), { stars: 3, badge: "silver" });
+  assert.deepEqual(getScoreReward(90), { stars: 3, badge: "gold" });
+  assert.deepEqual(getScoreReward(100), { stars: 3, badge: "trophy" });
 });
 
 test("keeps the leaderboard ordered and capped", () => {
   const entries = sortLeaderboard([
-    { id: "low", score: 120, createdAt: 1 },
-    { id: "high", score: 820, createdAt: 2 },
-    { id: "middle", score: 420, createdAt: 3 },
+    { id: "low", score: 20, createdAt: 1 },
+    { id: "high", score: 90, createdAt: 2 },
+    { id: "middle", score: 40, createdAt: 3 },
+    { id: "legacy", score: 820, createdAt: 4 },
   ]);
 
   assert.deepEqual(entries.map((entry) => entry.id), ["high", "middle", "low"]);

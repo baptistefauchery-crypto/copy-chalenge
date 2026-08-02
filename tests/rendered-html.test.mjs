@@ -68,9 +68,13 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(offlineStatus, /OFFLINE_NOTICE_DURATION_MS = 4000/);
   assert.match(offlineStatus, /setShowOfflineNotice\(false\)/);
   assert.match(dictaApp, /AUTO_HIDE_GRACE_MS = 2000/);
+  assert.match(dictaApp, /SCORE_REVEAL_DURATION_MS = 1800/);
+  assert.match(dictaApp, /requestAnimationFrame/);
+  assert.match(dictaApp, /isScoreRevealComplete/);
+  assert.match(dictaApp, /score-meter/);
   assert.match(dictaApp, /progressColor/);
   assert.match(dictaApp, /Math\.pow\(progressRatio, 1\.65\)/);
-  assert.match(dictaApp, /totalReviews < 3/);
+  assert.match(dictaApp, /isScoreRevealComplete && revealedScore > 0/);
   assert.match(dictaApp, /calculateScore/);
   assert.match(dictaApp, /LEADERBOARD_STORAGE_KEY/);
   assert.match(dictaApp, /leaderboard\.slice\(0, 5\)/);
@@ -88,9 +92,13 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.doesNotMatch(dictaApp, /Regardez la caméra/);
   assert.doesNotMatch(dictaApp, /Arrondi au mot supérieur/);
   assert.match(scoring, /export function calculateScore/);
+  assert.match(scoring, /MAX_SCORE = 100/);
+  assert.match(scoring, /export function getScoreReward/);
   assert.match(globals, /confetti-fall 6\.5s/);
   assert.match(globals, /confetti-from-left/);
   assert.match(globals, /confetti-from-right/);
   assert.match(globals, /summary-shell/);
   assert.match(globals, /summary-score-bounce/);
+  assert.match(globals, /score-meter-fill/);
+  assert.match(globals, /score-reward/);
 });
