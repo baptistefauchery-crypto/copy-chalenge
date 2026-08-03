@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import {
   calculateScore,
-  countScoringWords,
   getDictation,
   getLevel,
   getScoreReward,
@@ -22,7 +21,7 @@ import {
 } from "./lib/vision";
 import SpellingCheckModal from "./components/SpellingCheckModal";
 import { compareOcrToReference } from "./lib/ocr/compare-reference";
-import { recognizeHandwrittenText, type HandwritingOcrResult } from "./lib/ocr/trocr";
+import { recognizeHandwrittenText, type HandwritingOcrResult } from "./lib/ocr/paddle";
 import type { OcrComparisonResult } from "./lib/ocr/types";
 import { checkFrenchSpelling, type FrenchSpellingResult } from "./lib/spelling/french";
 
@@ -77,28 +76,12 @@ interface PendingScore {
   score: number;
   entry: LeaderboardEntry;
   previousBest: number;
-  elapsedMs: number;
 }
 
 interface SpellingVerification {
   ocr: HandwritingOcrResult;
   comparison: OcrComparisonResult;
   spelling: FrenchSpellingResult;
-}
-
-function normalizeScoreWord(value: string): string {
-  return value.normalize("NFC").toLocaleLowerCase("fr-FR");
-}
-
-function countVerificationFaults(comparison: OcrComparisonResult, spelling: FrenchSpellingResult): number {
-  const wordMismatches = comparison.wordDiffs.filter((diff) => diff.kind !== "equal");
-  const recognizedMismatchWords = new Set(
-    wordMismatches
-      .map((diff) => normalizeScoreWord(diff.recognized))
-      .filter(Boolean),
-  );
-  const additionalSpellingIssues = spelling.issues.filter((issue) => !recognizedMismatchWords.has(normalizeScoreWord(issue.word)));
-  return wordMismatches.length + additionalSpellingIssues.length;
 }
 
 function subscribeToDictationProgress(listener: () => void) {
@@ -284,7 +267,6 @@ export function DictaApp() {
   const autoHideBlockedUntilRef = useRef(0);
   const sessionStartedAtRef = useRef<number | null>(null);
   const calibrationReadConfirmedRef = useRef(false);
-  const spellingCaptureRequestRef = useRef(0);
 
   useEffect(() => {
     screenRef.current = screen;
@@ -312,17 +294,6 @@ export function DictaApp() {
 
   const selectLevel = (level: PrimaryLevel) => {
     chooseNextDictation(level);
-  };
-
-  const advanceChallenge = () => {
-    const nextIndex = (selectedDictation.index + 1) % selectedDictation.total;
-    const cursors = storedDictationProgress?.cursors ?? INITIAL_CURSORS;
-    persistDictationProgress({
-      level: selectedLevel,
-      index: nextIndex,
-      cursors: { ...cursors, [selectedLevel]: (nextIndex + 1) % selectedDictation.total },
-      lettersPerFragment: getLevel(selectedLevel).recommendedLetters,
-    });
   };
 
   const startAutoHideGracePeriod = useCallback(() => {
@@ -586,15 +557,15 @@ export function DictaApp() {
 
   const finishSession = () => {
     const elapsedMs = sessionStartedAtRef.current === null ? 1000 : Date.now() - sessionStartedAtRef.current;
-    const score = 0;
+    const score = calculateScore(text, elapsedMs, totalReviews);
     const entry: LeaderboardEntry = {
-      id: `${Date.now()}-${leaderboard.length}`,
+      id: `${Date.now()}-${score}-${leaderboard.length}`,
       score,
       createdAt: Date.now(),
     };
     const previousBest = leaderboard[0]?.score ?? 0;
-    setPendingScore({ score, entry, previousBest, elapsedMs });
-    setSummaryScore(null);
+    setPendingScore({ score, entry, previousBest });
+    setSummaryScore(score);
     setCanRevealScore(false);
     setSpellingVerification(null);
     setIsSpellingCheckOpen(false);
@@ -608,47 +579,17 @@ export function DictaApp() {
     setScreen("summary");
   };
 
-  const handleSpellingCapture = async (image: Blob, canvas: HTMLCanvasElement) => {
+  const handleSpellingCapture = async (image: Blob) => {
     if (!pendingScore) throw new Error("Aucun score en attente de vérification.");
-    const requestId = spellingCaptureRequestRef.current + 1;
-    spellingCaptureRequestRef.current = requestId;
-    setSpellingVerification(null);
-    const ocr = await recognizeHandwrittenText(image, canvas);
+    const ocr = await recognizeHandwrittenText(image);
     const comparison = compareOcrToReference(text, {
       text: ocr.text,
       confidence: ocr.confidence,
       tokens: ocr.tokens,
     });
-    const spelling = await checkFrenchSpelling(ocr.text, { ignoredWords: [text] });
-    if (requestId !== spellingCaptureRequestRef.current) return;
-    const score = calculateScore(text, pendingScore.elapsedMs, totalReviews, {
-      spellingFaults: countVerificationFaults(comparison, spelling),
-      wordCount: countScoringWords(text),
-      ocrConfidence: comparison.confidence,
-      speedReferenceLettersPerSecond: getLevel(selectedLevel).referenceSpeedSignsPerMinute / 60,
-    });
-    setPendingScore((current) => current
-      ? { ...current, score, entry: { ...current.entry, score } }
-      : current);
-    setSummaryScore(score);
+    const spelling = await checkFrenchSpelling(ocr.text);
     setSpellingVerification({ ocr, comparison, spelling });
     setIsSpellingCheckOpen(false);
-  };
-
-  const openSpellingCheck = () => {
-    spellingCaptureRequestRef.current += 1;
-    setSpellingVerification(null);
-    setIsSpellingCheckOpen(true);
-  };
-
-  const closeSpellingCheck = () => {
-    spellingCaptureRequestRef.current += 1;
-    setIsSpellingCheckOpen(false);
-  };
-
-  const retrySpellingCheck = () => {
-    spellingCaptureRequestRef.current += 1;
-    setSpellingVerification(null);
   };
 
   const revealScore = () => {
@@ -707,13 +648,13 @@ export function DictaApp() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div className="brand"><img className="brand-mark" src="/icons/icon-192.png" alt="" aria-hidden="true" />bêta copy chalenge</div>
+        <div className="brand"><img className="brand-mark" src="/icons/icon-192.png" alt="" aria-hidden="true" />Copy Challenge</div>
         <div className="topbar-actions">
           {screen === "setup" && (
             <button
               className="info-button"
               type="button"
-              aria-label="Comment utiliser bêta copy chalenge"
+              aria-label="Comment utiliser Copy Challenge"
               aria-expanded={isHelpOpen}
               aria-controls="how-to-use"
               onClick={() => setIsHelpOpen((open) => !open)}
@@ -726,11 +667,11 @@ export function DictaApp() {
       </header>
 
       {screen === "setup" && isHelpOpen && (
-        <section id="how-to-use" className="help-panel" aria-label="Comment utiliser bêta copy chalenge">
+        <section id="how-to-use" className="help-panel" aria-label="Comment utiliser Copy Challenge">
           <div className="help-panel-heading">
             <div>
               <div className="eyebrow">Mode d’emploi</div>
-              <h2>Comment utiliser bêta copy chalenge</h2>
+              <h2>Comment utiliser Copy Challenge</h2>
             </div>
             <button className="help-close" type="button" aria-label="Fermer les informations" onClick={() => setIsHelpOpen(false)}>×</button>
           </div>
@@ -757,14 +698,7 @@ export function DictaApp() {
           <section className="card setup-card">
             <div className="setup-heading">
               <label className="field-label" htmlFor="level-select">Niveau de classe</label>
-              <button
-                className="dictation-counter"
-                type="button"
-                aria-label="Passer au challenge suivant"
-                onClick={advanceChallenge}
-              >
-                Challenge {selectedDictation.index + 1} / {selectedDictation.total}
-              </button>
+              <span className="dictation-counter">Challenge {selectedDictation.index + 1} / {selectedDictation.total}</span>
             </div>
             <LevelPicker selectedLevel={selectedLevel} onSelect={selectLevel} />
             <div className="dictation-meta">
@@ -933,8 +867,8 @@ export function DictaApp() {
                     )}
                   </div>
                 )}
-                <button className="secondary-button spelling-gate-button" type="button" onClick={openSpellingCheck}>
-                  {spellingVerification ? "Refaire la vérification" : "Vérifier l’orthographe"}
+                <button className="secondary-button spelling-gate-button" type="button" onClick={() => setIsSpellingCheckOpen(true)}>
+                  {spellingVerification ? "Refaire la vérification" : "Vérifier l&apos;orthographe"}
                 </button>
                 {spellingVerification && (
                   <button className="primary-button" type="button" onClick={revealScore}>Révéler le score</button>
@@ -1001,8 +935,8 @@ export function DictaApp() {
       {isSpellingCheckOpen && pendingScore && (
         <SpellingCheckModal
           onCapture={handleSpellingCapture}
-          onClose={closeSpellingCheck}
-          onRetry={retrySpellingCheck}
+          onClose={() => setIsSpellingCheckOpen(false)}
+          onRetry={() => setSpellingVerification(null)}
         />
       )}
 

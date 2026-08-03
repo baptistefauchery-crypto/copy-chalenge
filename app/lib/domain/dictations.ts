@@ -4,7 +4,6 @@ export const PRIMARY_LEVELS = [
     label: "CP — Cours préparatoire",
     cycle: "Cycle 2 · apprentissages fondamentaux",
     recommendedLetters: 6,
-    referenceSpeedSignsPerMinute: 10,
     dictations: [
       "Lina a un vélo. Elle roule dans la cour.",
       "Le chat dort sur le tapis. Il rêve d’une souris.",
@@ -16,7 +15,6 @@ export const PRIMARY_LEVELS = [
     label: "CE1 — Cours élémentaire 1re année",
     cycle: "Cycle 2 · apprentissages fondamentaux",
     recommendedLetters: 8,
-    referenceSpeedSignsPerMinute: 24,
     dictations: [
       "Les petits lapins mangent des carottes dans le jardin.",
       "Ce matin, Zoé prépare son cartable et cherche ses crayons.",
@@ -25,10 +23,9 @@ export const PRIMARY_LEVELS = [
   },
   {
     id: "CE2",
-    label: "Niveau intermédiaire",
+    label: "CE2 — Cours élémentaire 2e année",
     cycle: "Cycle 2 · apprentissages fondamentaux",
     recommendedLetters: 10,
-    referenceSpeedSignsPerMinute: 34,
     dictations: [
       "Hier, les élèves ont planté des graines près de l’école.",
       "Le vieux bateau avance lentement entre les rochers.",
@@ -37,10 +34,9 @@ export const PRIMARY_LEVELS = [
   },
   {
     id: "CM1",
-    label: "Niveau avancé",
+    label: "CM1 — Cours moyen 1re année",
     cycle: "Cycle 3 · consolidation",
     recommendedLetters: 12,
-    referenceSpeedSignsPerMinute: 45,
     dictations: [
       "Quand le vent se lève, les grandes branches bougent et les oiseaux s’envolent.",
       "L’année dernière, nous avons découvert un sentier qui longeait la rivière.",
@@ -49,10 +45,9 @@ export const PRIMARY_LEVELS = [
   },
   {
     id: "CM2",
-    label: "Perfectionnement",
+    label: "CM2 — Cours moyen 2e année",
     cycle: "Cycle 3 · consolidation",
     recommendedLetters: 14,
-    referenceSpeedSignsPerMinute: 46,
     dictations: [
       "Après la pluie, les chemins glissants que nous avions suivis brillaient sous les éclaircies.",
       "Si tu prends le temps de relire tes phrases, tu repéreras les accords oubliés.",

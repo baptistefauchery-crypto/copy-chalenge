@@ -21,7 +21,7 @@ test("server-renders the Copy Challenge setup experience", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="fr">/);
-  assert.match(html, /<title>bêta copy chalenge/);
+  assert.match(html, /<title>Copy Challenge/);
   assert.match(html, /src="\/icons\/icon-192\.png"/);
   assert.match(html, /Niveau de classe/);
   assert.match(html, /level-picker/);
@@ -35,7 +35,7 @@ test("server-renders the Copy Challenge setup experience", async () => {
 
 test("ships the Android PWA and local vision assets", async () => {
   const manifest = JSON.parse(await readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"));
-  assert.equal(manifest.short_name, "bêta copy chalenge");
+  assert.equal(manifest.short_name, "Copy Challenge");
   assert.equal(manifest.id, "/");
   assert.equal(manifest.display, "standalone");
   assert.deepEqual(manifest.display_override, ["standalone"]);
@@ -57,37 +57,20 @@ test("ships the Android PWA and local vision assets", async () => {
   ]);
 
   const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /CACHE_VERSION = "copy-challenge-v4"/);
+  assert.match(serviceWorker, /CACHE_VERSION = "copy-challenge-v2"/);
   assert.match(serviceWorker, /url\.pathname\.startsWith\("\/dictionaries\/"\)/);
   assert.match(serviceWorker, /icon-maskable-512\.png/);
 
   const pwaProvider = await readFile(new URL("../app/components/pwa/PwaProvider.tsx", import.meta.url), "utf8");
-  const spellingModal = await readFile(new URL("../app/components/SpellingCheckModal.tsx", import.meta.url), "utf8");
-  const paddle = await readFile(new URL("../app/lib/ocr/paddle.ts", import.meta.url), "utf8");
-  const trocr = await readFile(new URL("../app/lib/ocr/trocr.ts", import.meta.url), "utf8");
   const offlineStatus = await readFile(new URL("../app/components/pwa/OfflineStatus.tsx", import.meta.url), "utf8");
   const dictaApp = await readFile(new URL("../app/DictaApp.tsx", import.meta.url), "utf8");
   const scoring = await readFile(new URL("../app/lib/domain/scoring.ts", import.meta.url), "utf8");
   const globals = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(pwaProvider, /display-mode: standalone/);
-  assert.match(pwaProvider, /Installer bêta copy chalenge sur ce téléphone/);
+  assert.match(pwaProvider, /Installer Copy Challenge sur ce téléphone/);
   assert.match(pwaProvider, /Installer\s+l’application/);
   assert.match(pwaProvider, /Google Chrome/);
   assert.match(pwaProvider, /display-mode: fullscreen/);
-  assert.match(pwaProvider, /deferredInstallEvent/);
-  assert.match(pwaProvider, /subscribeToInstallPrompt/);
-  assert.match(spellingModal, /facingMode: \{ exact: "environment" \}/);
-  assert.match(spellingModal, /caméra arrière/);
-  assert.match(paddle, /wasmPaths: OCR_WASM_PATHS/);
-  assert.match(paddle, /ort-wasm-simd-threaded\.mjs/);
-  assert.match(paddle, /ort-wasm-simd-threaded\.wasm/);
-  assert.match(trocr, /Xenova\/trocr-small-handwritten/);
-  assert.match(trocr, /dtype: "q8"/);
-  assert.match(trocr, /detectTextRegions/);
-  assert.match(dictaApp, /Vérifier l’orthographe/);
-  assert.doesNotMatch(dictaApp, /Vérifier l&apos;orthographe/);
-  assert.match(dictaApp, /spellingCaptureRequestRef/);
-  assert.match(dictaApp, /ignoredWords: \[text\]/);
   assert.match(offlineStatus, /OFFLINE_NOTICE_DURATION_MS = 4000/);
   assert.match(offlineStatus, /setShowOfflineNotice\(false\)/);
   assert.match(dictaApp, /AUTO_HIDE_GRACE_MS = 2000/);
@@ -102,8 +85,6 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(dictaApp, /Math\.pow\(progressRatio, 1\.65\)/);
   assert.match(dictaApp, /isScoreRevealComplete && revealedScore > 0/);
   assert.match(dictaApp, /calculateScore/);
-  assert.match(dictaApp, /className="dictation-counter"/);
-  assert.match(dictaApp, /onClick=\{advanceChallenge\}/);
   assert.match(dictaApp, /canRevealScore/);
   assert.match(dictaApp, /score-gate/);
   assert.match(dictaApp, /SpellingCheckModal/);
@@ -125,11 +106,7 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.doesNotMatch(dictaApp, /Arrondi au mot supérieur/);
   assert.match(scoring, /export function calculateScore/);
   assert.match(scoring, /MAX_SCORE = 100/);
-  assert.match(scoring, /SCORE_BASE = 110/);
-  assert.match(scoring, /SCORE_FAULT_WEIGHT = 0\.6/);
-  assert.match(scoring, /SCORE_CONFIDENCE_WEIGHT = 0\.2/);
-  assert.match(scoring, /SCORE_SPEED_WEIGHT = 0\.2/);
-  assert.match(scoring, /SPELLING_PENALTY_MULTIPLIER = 2/);
+  assert.match(scoring, /SCORE_POINTS_PER_LETTER = 80/);
   assert.match(scoring, /REVIEW_SCORE_MULTIPLIER = 0\.8/);
   assert.match(scoring, /export function getScoreReward/);
   assert.match(globals, /confetti-fall 6\.5s/);
@@ -141,5 +118,4 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(globals, /score-reward/);
   assert.match(globals, /score-reward-featured/);
   assert.match(globals, /score-gate/);
-  assert.match(globals, /\.spelling-check-camera video \{[^}]*transform: none;/s);
 });

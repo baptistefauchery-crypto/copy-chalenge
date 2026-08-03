@@ -50,7 +50,7 @@ export function SpellingCheckModal({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode: { exact: "environment" } },
+        video: { facingMode: "user" },
       });
 
       if (!mountedRef.current || requestId !== cameraRequestRef.current) {
@@ -166,7 +166,7 @@ export function SpellingCheckModal({
 
         <div className="spelling-check-camera" data-state={state}>
           {state !== "error" && (
-            <video ref={videoRef} autoPlay muted playsInline aria-label="Aperçu de la caméra arrière" />
+            <video ref={videoRef} autoPlay muted playsInline aria-label="Aperçu de la caméra frontale" />
           )}
           {state === "capture" && <div className="spelling-check-frame" aria-hidden="true" />}
           {state === "processing" && (
@@ -184,7 +184,7 @@ export function SpellingCheckModal({
 
         {state === "capture" && (
           <p className="spelling-check-help">
-            Placez le texte dans le cadre de la caméra arrière, puis prenez une photo nette et bien éclairée.
+            Placez le texte dans le cadre, puis prenez une photo nette et bien éclairée.
           </p>
         )}
 

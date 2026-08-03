@@ -3,15 +3,7 @@ import type { OcrResult, PaddleOCRCreateOptions } from "@paddleocr/paddleocr-js"
 import type { OcrToken } from "./types";
 
 const OCR_MODEL_BASE_PATH = "/models/ocr";
-const OCR_WASM_PATHS = {
-  // Passing the two files explicitly prevents ONNX Runtime from trying to
-  // dynamically import the optional WebGPU/JSEP runtime on Android.
-  mjs: "/ocr/wasm/ort-wasm-simd-threaded.mjs",
-  wasm: "/ocr/wasm/ort-wasm-simd-threaded.wasm",
-} as unknown as string;
-
-// Keep the standard WASM pair explicit: the optional JSEP binary exceeds the
-// hosting asset limit and is not used by the OCR backend selected here.
+const OCR_WASM_PATH = "/ocr/wasm/";
 
 const PADDLE_OPTIONS: PaddleOCRCreateOptions = {
   lang: "fr",
@@ -27,7 +19,7 @@ const PADDLE_OPTIONS: PaddleOCRCreateOptions = {
   worker: true,
   ortOptions: {
     backend: "wasm",
-    wasmPaths: OCR_WASM_PATHS,
+    wasmPaths: OCR_WASM_PATH,
     numThreads: 1,
     simd: true,
   },
@@ -44,11 +36,6 @@ export interface HandwritingOcrResult {
   confidence: number;
   detectedLines: number;
   processingMs: number;
-}
-
-export interface OcrTextRegion {
-  poly: OcrResult["items"][number]["poly"];
-  confidence: number;
 }
 
 let ocrPromise: Promise<PaddleOcrRunner> | null = null;
@@ -82,28 +69,6 @@ function orderItems(result: OcrResult) {
     .map((item, index) => ({ item, index, position: getTopLeft(item.poly) }))
     .sort((a, b) => a.position.top - b.position.top || a.position.left - b.position.left || a.index - b.index)
     .map(({ item }) => item);
-}
-
-export async function detectTextRegions(image: Blob): Promise<{
-  regions: OcrTextRegion[];
-  processingMs: number;
-}> {
-  const startedAt = performance.now();
-  const runner = await getOcrRunner();
-  const [result] = await runner.predict(image);
-  const orderedItems = result ? orderItems(result) : [];
-
-  if (orderedItems.length === 0) {
-    throw new Error("Aucune ligne de texte lisible n’a été détectée sur la feuille.");
-  }
-
-  return {
-    regions: orderedItems.map((item) => ({
-      poly: item.poly,
-      confidence: item.score,
-    })),
-    processingMs: Math.round(performance.now() - startedAt),
-  };
 }
 
 export async function recognizeHandwrittenText(image: Blob): Promise<HandwritingOcrResult> {

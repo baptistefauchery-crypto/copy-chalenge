@@ -10,7 +10,6 @@ import type {
 
 const DEFAULT_PROBABLE_CONFIDENCE = 0.8;
 const DEFAULT_UNCERTAIN_CONFIDENCE = 0.55;
-const WORD_PATTERN = /[\p{L}\p{M}\p{N}]+(?:'[\p{L}\p{M}\p{N}]+)*/gu;
 
 type SequenceEdit = {
   kind: "equal" | "insert" | "delete" | "replace";
@@ -47,11 +46,11 @@ export function compareOcrToReference(
   const confidence = resolveConfidence(input);
   const probableConfidence = options.probableConfidence ?? DEFAULT_PROBABLE_CONFIDENCE;
   const uncertainConfidence = options.uncertainConfidence ?? DEFAULT_UNCERTAIN_CONFIDENCE;
-  const exact = comparisonKey(normalizedReferenceText) === comparisonKey(normalizedRecognizedText);
+  const exact = normalizedReferenceText === normalizedRecognizedText;
   const status = getStatus(exact, confidence, probableConfidence, uncertainConfidence);
   const referenceWords = extractWords(normalizedReferenceText);
   const recognizedWords = extractWords(normalizedRecognizedText, input.tokens);
-  const wordEdits = diffSequences(referenceWords, recognizedWords, (word) => comparisonKey(word.text));
+  const wordEdits = diffSequences(referenceWords, recognizedWords, (word) => word.text);
   const wordDiffs = toWordDiffs(wordEdits, confidence, probableConfidence);
 
   return {
@@ -64,7 +63,7 @@ export function compareOcrToReference(
     matches: exact,
     wordDiffs,
     characterDiffs: toCharacterDiffs(
-      diffSequences([...normalizedReferenceText], [...normalizedRecognizedText], (character) => comparisonKey(character)),
+      diffSequences([...normalizedReferenceText], [...normalizedRecognizedText], (character) => character),
       confidence,
       probableConfidence,
     ),
@@ -96,18 +95,9 @@ function getStatus(
 
 function extractWords(text: string, tokens?: OcrToken[]): Word[] {
   if (tokens && tokens.length > 0) {
-    return tokens.flatMap((token) =>
-      extractWords(normalizeForComparison(token.text)).map((word) => ({
-        ...word,
-        confidence: token.confidence,
-      })),
-    );
+    return tokens.map((token) => ({ text: normalizeForComparison(token.text), confidence: token.confidence }));
   }
-  return [...text.matchAll(WORD_PATTERN)].map((match) => ({ text: match[0] }));
-}
-
-function comparisonKey(value: string): string {
-  return value.toLocaleLowerCase("fr-FR");
+  return [...text.matchAll(/[\p{L}\p{M}\p{N}]+(?:'[\p{L}\p{M}\p{N}]+)*/gu)].map((match) => ({ text: match[0] }));
 }
 
 function diffSequences<T>(
