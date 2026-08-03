@@ -7,6 +7,26 @@ import org.junit.Test
 
 class OcrReferenceSelectionTest {
     @Test
+    fun recognitionTensorUsesMinusOneToOneInsteadOfImageNetNormalization() {
+        assertEquals(
+            -1.0,
+            normalizeOcrTensorComponent(0, 0, OcrTensorPreprocessing.RECOGNITION).toDouble(),
+            0.0001,
+        )
+        assertEquals(
+            1.0,
+            normalizeOcrTensorComponent(255, 2, OcrTensorPreprocessing.RECOGNITION).toDouble(),
+            0.0001,
+        )
+        assertEquals(
+            (1.0 - 0.485) / 0.229,
+            normalizeOcrTensorComponent(255, 0, OcrTensorPreprocessing.DETECTION).toDouble(),
+            0.0001,
+        )
+        assertTrue(normalizeOcrTensorComponent(128, 1, OcrTensorPreprocessing.RECOGNITION) in 0f..0.01f)
+    }
+
+    @Test
     fun selectsDictationFromItsOpeningWordsAndDropsPreviousExercise() {
         val selection = selectReferenceLines(
             reference = "La Cigale, ayant chanté tout l'été, se trouva fort dépourvue.",

@@ -395,7 +395,7 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
                 state.value = state.value.copy(
                     ocrScanStage = OcrScanStage.ERROR,
                     ocrAnalysis = null,
-                    ocrMessage = "La reconnaissance PP-OCRv6 n’a pas pu analyser cette photo. Reprends-la avec plus de lumière.",
+                    ocrMessage = "La photo n’a pas pu être analysée. Reprends-la avec plus de lumière.",
                 )
             }
         }

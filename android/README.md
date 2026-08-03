@@ -9,7 +9,7 @@ les dossiers racine et n’est pas remplacée par ce module.
 - quinze challenges CP à CM2, progression locale et fragments de 1 à 100 lettres ;
 - mode caméra frontale avec MediaPipe Face Landmarker et repli manuel ;
 - lecture complète, calibration, mémorisation, écriture et choix ;
-- scan final avec caméra arrière non miroir et PP-OCRv6 Small hors ligne ;
+- photo finale avec aperçu figé, confirmation ou reprise, puis reconnaissance PP-OCRv6 Small hors ligne ;
 - détection du début de la dictée pour écarter les exercices précédents ;
 - comparaison au texte attendu, confiance OCR et fautes intégrées au score ;
 - fables de La Fontaine aux niveaux avancé et perfectionnement, avec découpage
@@ -39,7 +39,7 @@ reste ignoré par Git.
 
 ## Installation de test
 
-[Télécharger la bêta Android publiée](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.4/copy-challenge-beta.apk)
+[Télécharger la bêta Android publiée](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.5/copy-challenge-beta.apk)
 
 L’application utilise le réseau uniquement pour vérifier les bêtas publiées sur GitHub. Elle contrôle les mises à jour au lancement et à chaque retour au premier plan, puis affiche un bouton de téléchargement lorsqu’une version plus récente est disponible. Les images, vidéos et textes restent sur le téléphone.
 

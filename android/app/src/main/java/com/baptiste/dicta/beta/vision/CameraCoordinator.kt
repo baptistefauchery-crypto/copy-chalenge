@@ -9,6 +9,7 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import java.util.concurrent.Executor
 
@@ -18,6 +19,7 @@ class CameraCoordinator(
     private val onReading: (AttentionReading) -> Unit,
 ) : AutoCloseable {
     private val controller = LifecycleCameraController(context)
+    private val mainExecutor = ContextCompat.getMainExecutor(context)
     private var analyzer: MediaPipeAttentionAnalyzer? = null
     private var calibration: AttentionCalibration? = null
 
@@ -68,15 +70,17 @@ class CameraCoordinator(
                         if (rotated !== bitmap) bitmap.recycle()
                         bitmap = rotated
                     }
-                    onCaptured(bitmap)
+                    mainExecutor.execute { onCaptured(bitmap) }
                 } catch (error: Throwable) {
-                    onError(error)
+                    mainExecutor.execute { onError(error) }
                 } finally {
                     image.close()
                 }
             }
 
-            override fun onError(exception: ImageCaptureException) = onError(exception)
+            override fun onError(exception: ImageCaptureException) {
+                mainExecutor.execute { onError(exception) }
+            }
         })
     }
 

@@ -24,8 +24,11 @@ class StableCloneStructureTest {
             "Revoir les mots ?",
             "Bravo, c’est terminé !",
             "Préparer le challenge suivant",
-            "Scanner mon texte",
-            "Analyse PP-OCRv6",
+            "Photographie ton texte",
+            "Prendre la photo",
+            "Utiliser cette photo",
+            "Reprendre la photo",
+            "Analyse de la photo",
             "CameraMode.BACK",
             "Afficher mon score",
             "SCORE_REVEAL_DURATION_MS = 1_800",
@@ -35,6 +38,12 @@ class StableCloneStructureTest {
 
         assertFalse(ui.contains("Autoriser la caméra"))
         assertFalse(ui.contains("bêta copy chalenge"))
+        assertFalse(ui.contains("PP-OCRv6"))
+        assertFalse(ui.contains("effet miroir"))
+        assertFalse(ui.contains("Confiance OCR"))
+        assertFalse(ui.contains("coordinator.capture(vm::scanHandwriting)"))
+        assertTrue(ui.contains("capturedPhoto.asImageBitmap()"))
+        assertTrue(ui.contains("vm.scanHandwriting(photo)"))
     }
 
     @Test
@@ -44,6 +53,20 @@ class StableCloneStructureTest {
 
         assertTrue(ui.contains("painterResource(R.drawable.dicta_banner_tilted_notebook)"))
         assertTrue("Missing shared website banner asset", banner.isFile)
+    }
+
+    @Test
+    fun challengeCounterKeepsItsClickActionAndReadableBalancedShape() {
+        val ui = sourceRoot.resolve("DictaApp.kt").readText()
+
+        listOf(
+            "Pill(\"Challenge \${state.challengeIndex + 1} sur \${state.challengeTotal}\", vm::advanceChallenge)",
+            ".defaultMinSize(minWidth = 156.dp, minHeight = 52.dp)",
+            "shape = RoundedCornerShape(16.dp)",
+            "fontSize = 14.sp",
+            "fontWeight = FontWeight.Black",
+            "contentDescription = \"Passer au challenge suivant\"",
+        ).forEach { expected -> assertTrue("Missing readable challenge counter contract: $expected", ui.contains(expected)) }
     }
 
     @Test
@@ -83,6 +106,31 @@ class StableCloneStructureTest {
         assertTrue(viewModel.contains("OnnxOcrEngine"))
         assertFalse(viewModel.contains("!reading.faceDetected || reading.state == AttentionState.NOTEBOOK"))
         assertFalse(viewModel.contains("finishWithoutOcr"))
+    }
+
+    @Test
+    fun updatesStayInHelpAndPlacementKeepsManualModeAboveTheFold() {
+        val ui = sourceRoot.resolve("DictaApp.kt").readText()
+        val setup = ui.substringAfter("private fun SetupScreen").substringBefore("private fun HelpPanel")
+        val help = ui.substringAfter("private fun HelpPanel").substringBefore("private fun HomeIllustration")
+        val placement = ui.substringAfter("private fun PlacementScreen").substringBefore("private fun CameraStage")
+        val cameraStage = ui.substringAfter("private fun CameraStage").substringBefore("private fun CalibrationScreen")
+
+        assertTrue(setup.contains("HelpPanel("))
+        assertFalse(setup.contains("\"Rechercher les mises à jour\""))
+        assertFalse(setup.contains("\"L’application est à jour"))
+        assertTrue(help.contains("UpdateSection(state, onCheckUpdates, onDownloadUpdate)"))
+        assertTrue(help.contains("\"Rechercher les mises à jour\""))
+        assertTrue(help.contains("\"L’application est à jour"))
+        assertTrue(help.contains("\"Télécharger la mise à jour\""))
+
+        assertFalse(placement.contains("Installation"))
+        assertTrue(placement.contains("fontSize = 36.sp, lineHeight = 38.sp"))
+        assertTrue(placement.contains("Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)"))
+        assertTrue(placement.contains("Utiliser le mode manuel"))
+        assertTrue(cameraStage.contains(".height(PLACEMENT_CAMERA_HEIGHT)"))
+        assertFalse(cameraStage.contains(".aspectRatio(.84f)"))
+        assertTrue(ui.contains("private val PLACEMENT_CAMERA_HEIGHT = 280.dp"))
     }
 
     @Test

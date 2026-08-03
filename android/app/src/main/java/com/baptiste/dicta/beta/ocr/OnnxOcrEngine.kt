@@ -71,7 +71,13 @@ class OnnxOcrEngine(private val assets: android.content.res.AssetManager) : Clos
     private fun recognizeLine(source: Bitmap): OcrResult {
         val session = recognizerSession()
         val inputName = session.inputNames.first()
-        val input = imageTensor(source, 320, 48, preserveAspect = true)
+        val input = imageTensor(
+            source = source,
+            width = 320,
+            height = 48,
+            preserveAspect = true,
+            preprocessing = OcrTensorPreprocessing.RECOGNITION,
+        )
         input.use { tensor ->
             session.run(mapOf(inputName to tensor)).use { outputs ->
                 return decodeRecognition(outputs[0].value)
@@ -180,7 +186,13 @@ class OnnxOcrEngine(private val assets: android.content.res.AssetManager) : Clos
         return recognizer!!
     }
 
-    private fun imageTensor(source: Bitmap, width: Int, height: Int, preserveAspect: Boolean = false): OnnxTensor {
+    private fun imageTensor(
+        source: Bitmap,
+        width: Int,
+        height: Int,
+        preserveAspect: Boolean = false,
+        preprocessing: OcrTensorPreprocessing = OcrTensorPreprocessing.DETECTION,
+    ): OnnxTensor {
         val resizedWidth = if (preserveAspect) {
             min(width, max(1, (source.width.toDouble() * height / source.height.coerceAtLeast(1)).roundToInt()))
         } else width
@@ -190,11 +202,15 @@ class OnnxOcrEngine(private val assets: android.content.res.AssetManager) : Clos
             resized.getPixels(pixels, 0, resizedWidth, 0, 0, resizedWidth, height)
             val values = FloatArray(1 * 3 * height * width)
             var offset = 0
-            val means = floatArrayOf(0.485f, 0.456f, 0.406f)
-            val stds = floatArrayOf(0.229f, 0.224f, 0.225f)
             for (channel in 0..2) {
                 for (y in 0 until height) {
                     for (x in 0 until width) {
+                        if (x >= resizedWidth && preprocessing == OcrTensorPreprocessing.RECOGNITION) {
+                            // RecResizeImg leaves the right-hand padding at zero
+                            // after normalizing the resized content.
+                            values[offset++] = 0f
+                            continue
+                        }
                         val pixel = if (x < resizedWidth) pixels[y * resizedWidth + x] else Color.WHITE
                         // PaddleOCR's mobile models decode the image as BGR.
                         val component = when (channel) {
@@ -202,7 +218,7 @@ class OnnxOcrEngine(private val assets: android.content.res.AssetManager) : Clos
                             1 -> Color.green(pixel)
                             else -> Color.red(pixel)
                         }
-                        values[offset++] = (component / 255f - means[channel]) / stds[channel]
+                        values[offset++] = normalizeOcrTensorComponent(component, channel, preprocessing)
                     }
                 }
             }

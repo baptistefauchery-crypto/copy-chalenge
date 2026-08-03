@@ -67,12 +67,12 @@ puis vérifie le rendu HTML serveur.
 
 ### Installer la bêta Android
 
-[Télécharger directement la dernière bêta Android (APK)](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.4/copy-challenge-beta.apk)
+[Télécharger directement la dernière bêta Android (APK)](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.5/copy-challenge-beta.apk)
 
 Android peut demander d’autoriser l’installation depuis le navigateur. La bêta vérifie ensuite automatiquement les nouvelles versions au lancement et au retour dans l’application, et propose leur téléchargement.
 
 Le module `android/` contient l’application native installable : caméra
-CameraX/MediaPipe pour le regard, scan arrière PP-OCRv6 hors ligne, fables de
+CameraX/MediaPipe pour le regard, photo arrière confirmée avant reconnaissance hors ligne, fables de
 La Fontaine, score multifactoriel, récompenses et classement local. La
 procédure de build et d’installation est documentée dans
 [`android/README.md`](android/README.md).

@@ -3,6 +3,7 @@ package com.baptiste.dicta.beta
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -85,6 +86,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.layout.ContentScale
@@ -138,6 +140,7 @@ private const val REWARD_FEATURE_DURATION_MS = 2_400L
 private const val CONFETTI_DURATION_MS = 6_500
 private const val CONFETTI_MAX_DELAY_MS = 4_140
 private const val CONFETTI_TOTAL_DURATION_MS = CONFETTI_DURATION_MS + CONFETTI_MAX_DELAY_MS
+private val PLACEMENT_CAMERA_HEIGHT = 280.dp
 
 @Composable
 fun DictaApp(vm: DictaViewModel = viewModel()) {
@@ -288,18 +291,16 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
         onInfo = { helpOpen = !helpOpen },
         scroll = true,
     ) {
-        state.availableUpdate?.let { update ->
-            Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = Mint.copy(alpha = .96f))) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Mise à jour ${update.versionName} disponible", color = Ink, fontWeight = FontWeight.Black)
-                    Text("Une nouvelle bêta de Copy Challenge est prête à installer.", color = Muted, fontSize = 13.sp)
-                    Button(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.downloadUrl))) }) {
-                        Text("Télécharger la mise à jour")
-                    }
-                }
-            }
+        if (helpOpen) {
+            HelpPanel(
+                state = state,
+                onCheckUpdates = { vm.checkForUpdates(force = true) },
+                onDownloadUpdate = { downloadUrl ->
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)))
+                },
+                onClose = { helpOpen = false },
+            )
         }
-        if (helpOpen) HelpPanel { helpOpen = false }
         HomeIllustration()
         Card(
             shape = CardShape,
@@ -309,7 +310,7 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
             Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Niveau de classe", color = Ink, fontWeight = FontWeight.ExtraBold)
-                    Pill("Challenge ${state.challengeIndex + 1} / ${state.challengeTotal}", vm::advanceChallenge)
+                    Pill("Challenge ${state.challengeIndex + 1} sur ${state.challengeTotal}", vm::advanceChallenge)
                 }
                 Box {
                     val levelColor = levelColor(state.level)
@@ -374,31 +375,6 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
                     Text("Continuer sans caméra", color = Muted, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
                 }
                 state.cameraMessage?.let { Text(it, color = Muted, fontSize = 13.sp) }
-                TextButton(
-                    onClick = { vm.checkForUpdates(force = true) },
-                    enabled = state.updateCheckState != UpdateCheckState.CHECKING,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                ) {
-                    Text(if (state.updateCheckState == UpdateCheckState.CHECKING) "Recherche en cours…" else "Rechercher les mises à jour", color = Muted)
-                }
-                when {
-                    state.updateCheckState == UpdateCheckState.UP_TO_DATE && state.availableUpdate == null ->
-                        Text(
-                            "L’application est à jour (${BuildConfig.VERSION_NAME}).",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            color = Success,
-                            fontSize = 12.sp,
-                        )
-                    state.updateCheckState == UpdateCheckState.FAILED ->
-                        Text(
-                            state.updateCheckMessage ?: "Impossible de joindre GitHub pour vérifier les mises à jour. Vérifie ta connexion puis réessaie.",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            color = Coral,
-                            fontSize = 12.sp,
-                        )
-                }
             }
         }
         Row(Modifier.padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
@@ -411,7 +387,12 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
 }
 
 @Composable
-private fun HelpPanel(onClose: () -> Unit) {
+private fun HelpPanel(
+    state: DictaUiState,
+    onCheckUpdates: () -> Unit,
+    onDownloadUpdate: (String) -> Unit,
+    onClose: () -> Unit,
+) {
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = PaperStrong.copy(alpha = .96f))) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
@@ -439,6 +420,61 @@ private fun HelpPanel(onClose: () -> Unit) {
                     }
                 }
             }
+            UpdateSection(state, onCheckUpdates, onDownloadUpdate)
+        }
+    }
+}
+
+@Composable
+private fun UpdateSection(
+    state: DictaUiState,
+    onCheckUpdates: () -> Unit,
+    onDownloadUpdate: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(VioletSoft.copy(alpha = .72f))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Mises à jour", color = Ink, fontWeight = FontWeight.ExtraBold)
+        state.availableUpdate?.let { update ->
+            Text("Version ${update.versionName} disponible", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text("Une nouvelle bêta de Copy Challenge est prête à télécharger.", color = Muted, fontSize = 12.sp)
+            Button(onClick = { onDownloadUpdate(update.downloadUrl) }) {
+                Text("Télécharger la mise à jour")
+            }
+        } ?: run {
+            TextButton(
+                onClick = onCheckUpdates,
+                enabled = state.updateCheckState != UpdateCheckState.CHECKING,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            ) {
+                Text(
+                    if (state.updateCheckState == UpdateCheckState.CHECKING) "Recherche en cours…" else "Rechercher les mises à jour",
+                    color = Muted,
+                )
+            }
+        }
+        when {
+            state.updateCheckState == UpdateCheckState.UP_TO_DATE && state.availableUpdate == null ->
+                Text(
+                    "L’application est à jour (${BuildConfig.VERSION_NAME}).",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    color = Success,
+                    fontSize = 12.sp,
+                )
+            state.updateCheckState == UpdateCheckState.FAILED ->
+                Text(
+                    state.updateCheckMessage ?: "Impossible de joindre GitHub pour vérifier les mises à jour. Vérifie ta connexion puis réessaie.",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    color = Coral,
+                    fontSize = 12.sp,
+                )
         }
     }
 }
@@ -477,12 +513,10 @@ private fun PlacementScreen(state: DictaUiState, vm: DictaViewModel, coordinator
     }
 
     AppColumn(onClose = vm::reset, scroll = true) {
-        Spacer(Modifier.height(4.dp))
-        Eyebrow("Installation")
-        Text("Place ton visage dans le repère.", color = Ink, fontSize = 44.sp, lineHeight = 43.sp, fontWeight = FontWeight.Black)
+        Text("Place ton visage dans le repère.", color = Ink, fontSize = 36.sp, lineHeight = 38.sp, fontWeight = FontWeight.Black)
         Text("Pose le téléphone verticalement, à peu près à la longueur d’un bras.", color = Muted, lineHeight = 21.sp)
         Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = PaperStrong.copy(alpha = .92f))) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (permissionGranted) {
                     CameraStage(coordinator, state.faceDetected) { vm.cameraUnavailable(it) }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -516,7 +550,7 @@ private fun CameraStage(coordinator: CameraCoordinator, faceDetected: Boolean, o
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(.84f)
+            .height(PLACEMENT_CAMERA_HEIGHT)
             .clip(RoundedCornerShape(24.dp))
             .background(Brush.linearGradient(listOf(Color(0xFF373056), Color(0xFF171627)))),
     ) {
@@ -744,17 +778,31 @@ private fun BoxScope.DecisionStage(vm: DictaViewModel) {
 @Composable
 private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: CameraCoordinator) {
     val analysis = state.ocrAnalysis
+    val capturedPhotoState = remember(state.session?.id) { mutableStateOf<Bitmap?>(null) }
+    val acceptsCaptureResults = remember(state.session?.id) { mutableStateOf(true) }
+    val capturedPhoto = capturedPhotoState.value
+    var isTakingPhoto by remember(state.session?.id) { mutableStateOf(false) }
+
+    DisposableEffect(capturedPhotoState) {
+        acceptsCaptureResults.value = true
+        onDispose {
+            acceptsCaptureResults.value = false
+            capturedPhotoState.value?.takeUnless(Bitmap::isRecycled)?.recycle()
+            capturedPhotoState.value = null
+        }
+    }
+
     AppColumn(onClose = vm::reset, scroll = true) {
         Eyebrow("Vérification de la copie")
         Text(
-            "Scanne ton texte",
+            "Photographie ton texte",
             color = Ink,
             fontSize = 42.sp,
             lineHeight = 43.sp,
             fontWeight = FontWeight.Black,
         )
         Text(
-            "Cadre le début de la dictée et toute la phrase. PP-OCRv6 ignorera les exercices précédents.",
+            "Cadre le début de la dictée et toute la phrase, puis prends une photo nette.",
             color = Muted,
             lineHeight = 21.sp,
         )
@@ -768,7 +816,16 @@ private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: Cam
                         .clip(RoundedCornerShape(24.dp))
                         .background(Color(0xFF171627)),
                 ) {
-                    CameraPreview(coordinator, CameraMode.BACK, Modifier.fillMaxSize()) { vm.ocrCaptureFailed() }
+                    if (capturedPhoto != null && state.ocrScanStage == OcrScanStage.READY) {
+                        Image(
+                            bitmap = capturedPhoto.asImageBitmap(),
+                            contentDescription = "Photo de la copie à vérifier",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        CameraPreview(coordinator, CameraMode.BACK, Modifier.fillMaxSize()) { vm.ocrCaptureFailed() }
+                    }
                     Canvas(Modifier.fillMaxSize()) {
                         drawRect(Color.Black.copy(alpha = .12f))
                         val guide = Rect(size.width * .07f, size.height * .12f, size.width * .93f, size.height * .88f)
@@ -785,24 +842,68 @@ private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: Cam
                             Modifier.fillMaxSize().background(Ink.copy(alpha = .78f)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text("Analyse PP-OCRv6…", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                            Text("Analyse de la photo…", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
                         }
                     }
                 }
 
                 when (state.ocrScanStage) {
                     OcrScanStage.READY -> {
-                        Text(
-                            "La caméra arrière est utilisée sans effet miroir. La photo reste sur ce téléphone.",
-                            color = Muted,
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        PrimaryButton("Scanner mon texte", onClick = {
-                            coordinator.capture(vm::scanHandwriting) { vm.ocrCaptureFailed() }
-                        })
+                        if (capturedPhoto == null) {
+                            Text(
+                                "Vérifie que la phrase est entièrement visible dans le cadre.",
+                                color = Muted,
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            PrimaryButton(
+                                text = if (isTakingPhoto) "Prise de photo…" else "Prendre la photo",
+                                enabled = !isTakingPhoto,
+                                onClick = {
+                                    isTakingPhoto = true
+                                    coordinator.capture(
+                                        onCaptured = { bitmap ->
+                                            if (!acceptsCaptureResults.value) {
+                                                bitmap.recycle()
+                                                return@capture
+                                            }
+                                            capturedPhotoState.value?.takeUnless(Bitmap::isRecycled)?.recycle()
+                                            capturedPhotoState.value = bitmap
+                                            isTakingPhoto = false
+                                        },
+                                        onError = {
+                                            isTakingPhoto = false
+                                            vm.ocrCaptureFailed()
+                                        },
+                                    )
+                                },
+                            )
+                        } else {
+                            Text(
+                                "Cette photo te convient-elle ?",
+                                color = Ink,
+                                fontWeight = FontWeight.ExtraBold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            PrimaryButton("Utiliser cette photo", onClick = {
+                                val photo = capturedPhotoState.value ?: return@PrimaryButton
+                                capturedPhotoState.value = null
+                                vm.scanHandwriting(photo)
+                            })
+                            OutlinedButton(
+                                onClick = {
+                                    capturedPhotoState.value?.takeUnless(Bitmap::isRecycled)?.recycle()
+                                    capturedPhotoState.value = null
+                                },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                shape = ButtonShape,
+                            ) {
+                                Text("Reprendre la photo", color = VioletDark, fontWeight = FontWeight.ExtraBold)
+                            }
+                        }
                     }
                     OcrScanStage.PROCESSING -> Unit
                     OcrScanStage.ERROR -> {
@@ -820,7 +921,7 @@ private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: Cam
                                     color = Ink,
                                     fontWeight = FontWeight.ExtraBold,
                                 )
-                                Text("Confiance OCR : ${(confidence * 100).toInt()} %", color = Muted, fontSize = 13.sp)
+                                Text("Lisibilité estimée : ${(confidence * 100).toInt()} %", color = Muted, fontSize = 13.sp)
                                 Text("Texte reconnu : $recognized", color = Ink, fontSize = 13.sp, lineHeight = 18.sp)
                             }
                         }
@@ -1055,12 +1156,21 @@ private fun Pill(text: String, onClick: (() -> Unit)? = null) {
     val click = onClick
     val pillModifier = click?.let {
         Modifier
-            .defaultMinSize(minWidth = 132.dp, minHeight = 48.dp)
+            .defaultMinSize(minWidth = 156.dp, minHeight = 52.dp)
             .clickable(role = Role.Button, onClick = it)
             .semantics { contentDescription = "Passer au challenge suivant" }
     } ?: Modifier
-    Surface(modifier = pillModifier, shape = CircleShape, color = VioletSoft) {
-        Text(text, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp), color = VioletDark, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+    Surface(modifier = pillModifier, shape = RoundedCornerShape(16.dp), color = VioletSoft) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            color = VioletDark,
+            fontWeight = FontWeight.Black,
+            fontSize = 14.sp,
+            lineHeight = 18.sp,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+        )
     }
 }
 
