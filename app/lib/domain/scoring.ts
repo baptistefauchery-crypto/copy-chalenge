@@ -7,11 +7,16 @@ export interface LeaderboardEntry {
 export const LEADERBOARD_STORAGE_KEY = "copy-challenge-leaderboard-v1";
 export const MAX_SCORE = 100;
 const LEADERBOARD_LIMIT = 5;
-export const SCORE_BASE = 110;
-export const SCORE_FAULT_WEIGHT = 0.6;
-export const SCORE_CONFIDENCE_WEIGHT = 0.2;
-export const SCORE_SPEED_WEIGHT = 0.2;
-export const SPELLING_PENALTY_MULTIPLIER = 2;
+export const SCORE_BASE = 100;
+export const MAX_FAULT_PENALTY = 45;
+export const MAX_SPEED_ADJUSTMENT = 6;
+export const MAX_LENGTH_BONUS = 5;
+export const MIN_LENGTH_FOR_BONUS = 50;
+export const LENGTH_FOR_MAX_BONUS = 250;
+export const EXPECTED_SPEED_RATIO = 0.75;
+export const EXPECTED_OCR_CONFIDENCE = 0.75;
+export const OCR_CONFIDENCE_SCALE = 4;
+export const DEFAULT_SPEED_REFERENCE_LETTERS_PER_SECOND = 2;
 const REVIEW_SCORE_MULTIPLIER = 0.8;
 
 export interface ScoreCalculationOptions {
@@ -19,6 +24,17 @@ export interface ScoreCalculationOptions {
   wordCount: number;
   ocrConfidence: number;
   speedReferenceLettersPerSecond: number;
+}
+
+export interface ScoreBreakdown {
+  score: number;
+  rawScore: number;
+  baseScore: number;
+  faultPenalty: number;
+  speedAdjustment: number;
+  lengthBonus: number;
+  confidenceAdjustment: number;
+  reviewMultiplier: number;
 }
 
 export type ScoreBadge = "none" | "bronze" | "silver" | "gold" | "trophy";
@@ -42,31 +58,86 @@ export function calculateScore(
   reviewCount = 0,
   options: ScoreCalculationOptions,
 ): number {
+  return calculateScoreBreakdown(text, elapsedMs, reviewCount, options).score;
+}
+
+/**
+ * Calculates a deliberately readable score before capping it for display.
+ *
+ * - 100 points is the neutral target: no faults, 75% of the reference speed,
+ *   and 75% OCR confidence. Perfect speed/readability are therefore not needed.
+ * - Reviews have the largest normal impact (20% compounding penalty each).
+ * - Faults remove up to 45 points, proportionally to the expected word count.
+ * - Speed changes at most +/-6 points and is based on letters per second.
+ * - Long texts add at most 5 points; OCR confidence changes -3 to +1 point.
+ *
+ * A flawless long and fast dictation can reach 112 raw points. `score` is the
+ * rounded 0..100 value used by the UI, while `rawScore` remains available for
+ * diagnostics and future reward tuning.
+ */
+export function calculateScoreBreakdown(
+  text: string,
+  elapsedMs: number,
+  reviewCount = 0,
+  options: ScoreCalculationOptions,
+): ScoreBreakdown {
   const letters = countScoringLetters(text);
-  if (letters === 0) return 0;
+  if (letters === 0) {
+    return {
+      score: 0,
+      rawScore: 0,
+      baseScore: SCORE_BASE,
+      faultPenalty: 0,
+      speedAdjustment: 0,
+      lengthBonus: 0,
+      confidenceAdjustment: 0,
+      reviewMultiplier: 1,
+    };
+  }
 
   const elapsedSeconds = Math.max(Number.isFinite(elapsedMs) ? elapsedMs / 1000 : 1, 1);
-  const reviews = Number.isFinite(reviewCount) ? Math.max(0, reviewCount) : 0;
+  const reviews = Number.isFinite(reviewCount) ? Math.max(0, Math.floor(reviewCount)) : 0;
   const wordCount = Math.max(1, Number.isFinite(options.wordCount) ? Math.round(options.wordCount) : countScoringWords(text));
   const spellingFaults = Number.isFinite(options.spellingFaults)
-    ? Math.max(0, options.spellingFaults)
+    ? Math.max(0, Math.round(options.spellingFaults))
     : wordCount;
-  const spellingScore = Math.max(0, 1 - SPELLING_PENALTY_MULTIPLIER * spellingFaults / wordCount);
-  const confidenceScore = clampUnit(options.ocrConfidence);
-  const speedReference = Math.max(options.speedReferenceLettersPerSecond, Number.EPSILON);
+  const faultRate = clampUnit(spellingFaults / wordCount);
+  const faultPenalty = MAX_FAULT_PENALTY * faultRate;
+  const confidence = clampUnit(options.ocrConfidence);
+  const confidenceAdjustment = OCR_CONFIDENCE_SCALE * (confidence - EXPECTED_OCR_CONFIDENCE);
+  const speedReference = Number.isFinite(options.speedReferenceLettersPerSecond)
+    ? Math.max(options.speedReferenceLettersPerSecond, Number.EPSILON)
+    : DEFAULT_SPEED_REFERENCE_LETTERS_PER_SECOND;
   const lettersPerSecond = letters / elapsedSeconds;
-  const speedScore = Math.min(1, lettersPerSecond / speedReference);
+  const speedRatio = lettersPerSecond / speedReference;
+  const normalizedSpeed = clampSigned((speedRatio - EXPECTED_SPEED_RATIO) / EXPECTED_SPEED_RATIO);
+  const speedAdjustment = MAX_SPEED_ADJUSTMENT * normalizedSpeed;
+  const lengthProgress = (letters - MIN_LENGTH_FOR_BONUS) / (LENGTH_FOR_MAX_BONUS - MIN_LENGTH_FOR_BONUS);
+  const lengthBonus = MAX_LENGTH_BONUS * clampUnit(lengthProgress);
   const reviewMultiplier = Math.pow(REVIEW_SCORE_MULTIPLIER, reviews);
-  const rawScore = SCORE_BASE * (
-    SCORE_FAULT_WEIGHT * spellingScore
-    + SCORE_CONFIDENCE_WEIGHT * confidenceScore
-    + SCORE_SPEED_WEIGHT * speedScore
+  const rawScore = Math.max(
+    0,
+    SCORE_BASE - faultPenalty + speedAdjustment + lengthBonus + confidenceAdjustment,
   ) * reviewMultiplier;
-  return Math.min(MAX_SCORE, Math.max(0, Math.round(rawScore)));
+
+  return {
+    score: Math.min(MAX_SCORE, Math.max(0, Math.round(rawScore))),
+    rawScore,
+    baseScore: SCORE_BASE,
+    faultPenalty,
+    speedAdjustment,
+    lengthBonus,
+    confidenceAdjustment,
+    reviewMultiplier,
+  };
 }
 
 function clampUnit(value: number): number {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+}
+
+function clampSigned(value: number): number {
+  return Number.isFinite(value) ? Math.min(1, Math.max(-1, value)) : -1;
 }
 
 export function getScoreReward(score: number): ScoreReward {

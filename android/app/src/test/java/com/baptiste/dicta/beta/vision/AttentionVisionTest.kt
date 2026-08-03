@@ -23,12 +23,12 @@ class AttentionVisionTest {
         val stabilizer = AttentionStabilizer()
 
         assertEquals(AttentionState.UNKNOWN, stabilizer.update(AttentionState.SCREEN, 1.0, 0L))
-        assertEquals(AttentionState.UNKNOWN, stabilizer.update(AttentionState.SCREEN, 1.0, 699L))
-        assertEquals(AttentionState.SCREEN, stabilizer.update(AttentionState.SCREEN, 1.0, 700L))
+        assertEquals(AttentionState.UNKNOWN, stabilizer.update(AttentionState.SCREEN, 1.0, 1_199L))
+        assertEquals(AttentionState.SCREEN, stabilizer.update(AttentionState.SCREEN, 1.0, 1_200L))
 
-        assertEquals(AttentionState.SCREEN, stabilizer.update(AttentionState.NOTEBOOK, 1.0, 1_000L))
-        assertEquals(AttentionState.SCREEN, stabilizer.update(AttentionState.NOTEBOOK, 1.0, 1_219L))
-        assertEquals(AttentionState.NOTEBOOK, stabilizer.update(AttentionState.NOTEBOOK, 1.0, 1_220L))
+        assertEquals(AttentionState.SCREEN, stabilizer.update(AttentionState.NOTEBOOK, 1.0, 1_500L))
+        assertEquals(AttentionState.SCREEN, stabilizer.update(AttentionState.NOTEBOOK, 1.0, 2_399L))
+        assertEquals(AttentionState.NOTEBOOK, stabilizer.update(AttentionState.NOTEBOOK, 1.0, 2_400L))
     }
 
     @Test
@@ -52,6 +52,10 @@ class AttentionVisionTest {
         assertEquals(
             AttentionState.NOTEBOOK,
             classifyFeatures(screenFeatures.copy(headPitch = screenFeatures.headPitch + 0.2), calibration).first,
+        )
+        assertEquals(
+            AttentionState.UNKNOWN,
+            classifyFeatures(screenFeatures.copy(headPitch = screenFeatures.headPitch + 0.06), calibration).first,
         )
     }
 

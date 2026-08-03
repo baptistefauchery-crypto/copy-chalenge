@@ -1,5 +1,17 @@
 export type DetectionMode = "camera" | "manual";
 
+/** Controls how the learning text is divided into challenge fragments. */
+export type FragmentMode = "letters" | "verses";
+
+/**
+ * Metadata kept separately from the displayed text so the UI can render a
+ * verse-end cue without adding a character that would pollute OCR comparison.
+ */
+export interface TextFragment {
+  text: string;
+  endsVerse: boolean;
+}
+
 export interface Exercise {
   id: string;
   title: string;
@@ -24,4 +36,3 @@ export interface CalibrationSample {
   threshold: number;
   quality: number;
 }
-

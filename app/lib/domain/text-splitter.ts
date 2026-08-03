@@ -1,7 +1,26 @@
+import type { FragmentMode, TextFragment } from "./types";
+
 export interface TextSplitOptions {
-  /** Desired fragment size in letters. The fragment ends at a word boundary and never crosses a sentence. */
+  /** Desired fragment size in letters. The fragment ends at a word boundary. */
   targetLetters?: number;
+  /** Perfectionnement poems use one complete verse per fragment. */
+  mode?: FragmentMode;
+  /** Preserve verse boundaries and expose their ends even in letter mode. */
+  preserveVerseBreaks?: boolean;
 }
+
+const LINKED_DETERMINERS = new Set([
+  "le",
+  "la",
+  "l'",
+  "l’",
+  "un",
+  "une",
+  "des",
+  "les",
+  "au",
+  "aux",
+]);
 
 function normalizeOptions(options: TextSplitOptions) {
   const targetLetters = options.targetLetters ?? 30;
@@ -13,11 +32,23 @@ function normalizeOptions(options: TextSplitOptions) {
     throw new RangeError("targetLetters must be a positive integer");
   }
 
-  return { targetLetters };
+  return {
+    targetLetters,
+    mode: options.mode ?? "letters",
+    preserveVerseBreaks: options.preserveVerseBreaks ?? false,
+  };
 }
 
 function endsSentence(word: string): boolean {
   return /[.!?](?:[»"')\]]*)$/u.test(word);
+}
+
+function isLinkedDeterminer(word: string): boolean {
+  const normalized = word
+    .toLocaleLowerCase("fr-FR")
+    .replace(/^[«“"(\[]+/u, "")
+    .replace(/[,;:!?.”»")\]]+$/u, "");
+  return LINKED_DETERMINERS.has(normalized);
 }
 
 /** Counts letters while ignoring spaces, punctuation, and numbers. */
@@ -36,39 +67,72 @@ function chooseSize(
   for (let size = 1; size <= remaining; size += 1) {
     const word = words[offset + size - 1];
     letters += countLetters(word);
-    if (endsSentence(word)) return size;
-    if (letters >= targetLetters) return size;
+    const reachedBoundary = endsSentence(word) || letters >= targetLetters;
+    if (!reachedBoundary) continue;
+
+    // A determiner is pedagogically meaningless on its own: always keep it
+    // with the word that follows, even when the target was just reached.
+    if (isLinkedDeterminer(word) && size < remaining) continue;
+    return size;
   }
 
   return remaining;
 }
 
+function splitLineByLetters(line: string, targetLetters: number): string[] {
+  const normalized = line.trim().replace(/[\t ]+/gu, " ");
+  if (!normalized) return [];
+
+  const words = normalized.split(" ");
+  const fragments: string[] = [];
+  for (let offset = 0; offset < words.length;) {
+    const size = chooseSize(words, offset, targetLetters);
+    fragments.push(words.slice(offset, offset + size).join(" "));
+    offset += size;
+  }
+  return fragments;
+}
+
 /**
- * Splits French prose into readable fragments of roughly the requested number
- * of letters. Each fragment is rounded up to the next complete word, without
- * crossing a sentence boundary, while
- * preserving punctuation. Whitespace is normalized and an empty input produces [].
+ * Produces fragment text plus verse-boundary metadata. The marker is data, not
+ * punctuation: OCR and spelling comparisons continue to receive faithful text.
+ */
+export function splitTextIntoFragmentDetails(
+  text: string,
+  options: TextSplitOptions = {},
+): TextFragment[] {
+  const config = normalizeOptions(options);
+
+  if (config.mode === "verses") {
+    return text
+      .split(/\r?\n/gu)
+      .map((line) => line.trim().replace(/[\t ]+/gu, " "))
+      .filter(Boolean)
+      .map((line) => ({ text: line, endsVerse: true }));
+  }
+
+  if (config.preserveVerseBreaks) {
+    return text
+      .split(/\r?\n/gu)
+      .map((line) => splitLineByLetters(line, config.targetLetters))
+      .filter((fragments) => fragments.length > 0)
+      .flatMap((fragments) => fragments.map((fragment, index) => ({
+        text: fragment,
+        endsVerse: index === fragments.length - 1,
+      })));
+  }
+
+  return splitLineByLetters(text.trim().replace(/\s+/gu, " "), config.targetLetters)
+    .map((fragment) => ({ text: fragment, endsVerse: false }));
+}
+
+/**
+ * Splits French text into display fragments while preserving punctuation and
+ * never leaving le/la/l’/un/une/des/les/au/aux at the end of a fragment.
  */
 export function splitTextIntoFragments(
   text: string,
   options: TextSplitOptions = {},
 ): string[] {
-  const normalized = text.trim().replace(/\s+/gu, " ");
-  if (!normalized) return [];
-
-  const config = normalizeOptions(options);
-  const words = normalized.split(" ");
-  const fragments: string[] = [];
-
-  for (let offset = 0; offset < words.length;) {
-    const size = chooseSize(
-      words,
-      offset,
-      config.targetLetters,
-    );
-    fragments.push(words.slice(offset, offset + size).join(" "));
-    offset += size;
-  }
-
-  return fragments;
+  return splitTextIntoFragmentDetails(text, options).map(({ text: fragment }) => fragment);
 }

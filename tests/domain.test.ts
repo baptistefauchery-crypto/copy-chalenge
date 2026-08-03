@@ -4,10 +4,12 @@ import test from "node:test";
 import {
   countLetters,
   calculateScore,
+  calculateScoreBreakdown,
   createSession,
   getDictation,
   PRIMARY_LEVELS,
   getScoreReward,
+  splitTextIntoFragmentDetails,
   splitTextIntoFragments,
   sortLeaderboard,
   totalReviews,
@@ -45,7 +47,7 @@ test("offers three deterministic dictations for every primary class", () => {
   }
 });
 
-test("calculates the spelling-aware score between zero and one hundred", () => {
+test("calculates the multi-factor score between zero and one hundred", () => {
   const perfect = {
     spellingFaults: 0,
     wordCount: 3,
@@ -54,13 +56,86 @@ test("calculates the spelling-aware score between zero and one hundred", () => {
   };
 
   assert.equal(calculateScore("Le chat dort", 5000, 0, perfect), 100);
-  assert.equal(calculateScore("Le chat dort", 5000, 0, { ...perfect, spellingFaults: 1 }), 64);
-  assert.equal(calculateScore("Le chat dort", 5000, 1, perfect), 86);
-  assert.equal(calculateScore("Le chat dort", 10000, 0, perfect), 97);
-  assert.equal(calculateScore("Le chat dort", 5000, 0, { ...perfect, spellingFaults: 3, wordCount: 3 }), 42);
+  assert.equal(calculateScore("Le chat dort", 5000, 0, { ...perfect, spellingFaults: 1 }), 88);
+  assert.equal(calculateScore("Le chat dort", 5000, 1, perfect), 82);
+  assert.equal(calculateScore("Le chat dort", 10000, 0, perfect), 99);
+  assert.equal(calculateScore("Le chat dort", 5000, 0, { ...perfect, spellingFaults: 3, wordCount: 3 }), 58);
   assert.equal(calculateScore("", 30000, 0, perfect), 0);
   assert.ok(calculateScore("Le chat dort", 30000, 0, perfect) >= 0);
   assert.ok(calculateScore("Le chat dort", 30000, 0, perfect) <= 100);
+});
+
+test("keeps a raw score above one hundred before applying the display cap", () => {
+  const longText = "a".repeat(250);
+  const result = calculateScoreBreakdown(longText, 250_000 / 3, 0, {
+    spellingFaults: 0,
+    wordCount: 25,
+    ocrConfidence: 1,
+    speedReferenceLettersPerSecond: 2,
+  });
+
+  assert.equal(result.rawScore, 112);
+  assert.equal(result.score, 100);
+  assert.equal(result.lengthBonus, 5);
+  assert.equal(result.speedAdjustment, 6);
+  assert.equal(result.confidenceAdjustment, 1);
+});
+
+test("allows one hundred without perfect speed or OCR confidence", () => {
+  const result = calculateScoreBreakdown("abcdefghij", 20_000 / 3, 0, {
+    spellingFaults: 0,
+    wordCount: 1,
+    ocrConfidence: 0.75,
+    speedReferenceLettersPerSecond: 2,
+  });
+
+  assert.ok(Math.abs(result.rawScore - 100) < 1e-9);
+  assert.equal(result.score, 100);
+});
+
+test("weights reviews above faults, speed, and OCR confidence", () => {
+  const text = "a".repeat(50);
+  const elapsedAtExpectedSpeed = 100_000 / 3;
+  const options = {
+    spellingFaults: 0,
+    wordCount: 5,
+    ocrConfidence: 0.75,
+    speedReferenceLettersPerSecond: 2,
+  };
+  const baseline = calculateScoreBreakdown(text, elapsedAtExpectedSpeed, 0, options);
+  const oneReview = calculateScoreBreakdown(text, elapsedAtExpectedSpeed, 1, options);
+  const oneFault = calculateScoreBreakdown(text, elapsedAtExpectedSpeed, 0, {
+    ...options,
+    spellingFaults: 1,
+  });
+  const slowest = calculateScoreBreakdown(text, Number.MAX_VALUE, 0, options);
+  const unreadable = calculateScoreBreakdown(text, elapsedAtExpectedSpeed, 0, {
+    ...options,
+    ocrConfidence: 0,
+  });
+
+  assert.ok(Math.abs(baseline.rawScore - 100) < 1e-9);
+  assert.ok(baseline.rawScore - oneReview.rawScore > baseline.rawScore - oneFault.rawScore);
+  assert.ok(baseline.rawScore - oneFault.rawScore > baseline.rawScore - slowest.rawScore);
+  assert.ok(baseline.rawScore - slowest.rawScore > baseline.rawScore - unreadable.rawScore);
+  assert.equal(oneReview.reviewMultiplier, 0.8);
+  assert.equal(oneFault.faultPenalty, 9);
+  assert.equal(slowest.speedAdjustment, -6);
+  assert.equal(unreadable.confidenceAdjustment, -3);
+});
+
+test("bounds malformed score inputs deterministically", () => {
+  const malformed = calculateScoreBreakdown("abcdefghij", Number.NaN, -4, {
+    spellingFaults: Number.POSITIVE_INFINITY,
+    wordCount: Number.NaN,
+    ocrConfidence: Number.NaN,
+    speedReferenceLettersPerSecond: Number.NaN,
+  });
+
+  assert.ok(Number.isFinite(malformed.rawScore));
+  assert.ok(malformed.score >= 0 && malformed.score <= 100);
+  assert.equal(malformed.reviewMultiplier, 1);
+  assert.equal(malformed.confidenceAdjustment, -3);
 });
 
 test("assigns stars and awards at the requested score thresholds", () => {
@@ -107,6 +182,66 @@ test("rounds up to a word without crossing two sentences", () => {
     "dans le jardin.",
     "Le soleil",
     "brille.",
+  ]);
+});
+
+test("keeps requested French determiners with the following word", () => {
+  const fragments = splitTextIntoFragments(
+    "Voir le grand Corbeau et la Fourmi avec un Renard, une Cigale, des graines, les bois, au matin et aux champs.",
+    { targetLetters: 4 },
+  );
+  const forbiddenEnd = /(?:^|\s)(?:le|la|l[’']|un|une|des|les|au|aux)$/iu;
+
+  assert.ok(fragments.length > 2);
+  assert.ok(fragments.every((fragment) => !forbiddenEnd.test(fragment)));
+  assert.equal(fragments.join(" "), "Voir le grand Corbeau et la Fourmi avec un Renard, une Cigale, des graines, les bois, au matin et aux champs.");
+});
+
+test("publishes La Fontaine poems with faithful verse metadata", () => {
+  const advanced = getDictation("CM1", 0);
+  assert.match(advanced.text, /^La Cigale, ayant chanté\nTout l’été,/u);
+  assert.match(advanced.text, /Chez la Fourmi sa voisine,/u);
+  assert.equal(advanced.fragmentMode, "letters");
+  assert.equal(advanced.preserveVerseBreaks, true);
+
+  const corbeau = getDictation("CM2", 0);
+  const loup = getDictation("CM2", 1);
+  assert.match(corbeau.text, /^Maître Corbeau,/u);
+  assert.match(corbeau.text, /Le Renard s’en saisit/u);
+  assert.match(loup.text, /^La raison du plus fort/u);
+  assert.match(loup.text, /Le Loup l’emporte/u);
+  assert.equal(corbeau.fragmentMode, "verses");
+  assert.equal(loup.fragmentMode, "verses");
+});
+
+test("splits perfectionnement poems verse by verse and exposes verse ends", () => {
+  const dictation = getDictation("CM2", 0);
+  const details = splitTextIntoFragmentDetails(dictation.text, {
+    targetLetters: 1,
+    mode: dictation.fragmentMode,
+    preserveVerseBreaks: dictation.preserveVerseBreaks,
+  });
+
+  assert.equal(details.length, dictation.text.split("\n").length);
+  assert.deepEqual(details.slice(0, 3), [
+    { text: "Maître Corbeau, sur un arbre perché,", endsVerse: true },
+    { text: "Tenait en son bec un fromage.", endsVerse: true },
+    { text: "Maître Renard, par l’odeur alléché,", endsVerse: true },
+  ]);
+});
+
+test("preserves verse boundaries while using letter-sized advanced fragments", () => {
+  const dictation = getDictation("CM1", 0);
+  const details = splitTextIntoFragmentDetails(dictation.text, {
+    targetLetters: 8,
+    mode: dictation.fragmentMode,
+    preserveVerseBreaks: dictation.preserveVerseBreaks,
+  });
+
+  assert.deepEqual(details.slice(0, 3), [
+    { text: "La Cigale,", endsVerse: false },
+    { text: "ayant chanté", endsVerse: true },
+    { text: "Tout l’été,", endsVerse: true },
   ]);
 });
 

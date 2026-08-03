@@ -56,15 +56,15 @@ function distanceTo(sample: AttentionFeatures, target: CalibrationSample, other:
 const tolerance = (deviation: number, floor: number) => Math.max(floor, deviation * 3);
 
 /**
- * Compare iris displacement and head orientation independently, then require
- * both signals to agree before calling the sample a screen look.
+ * Compare iris displacement and head orientation independently. A small
+ * movement is deliberately ambiguous: it must not be enough to hide the
+ * fragment. Only a clearly different pose is classified as notebook.
  */
-function looksAtCalibratedScreen(sample: AttentionFeatures, screen: CalibrationSample) {
+function classifyScreenOnly(sample: AttentionFeatures, screen: CalibrationSample) {
   const headPitchDelta = Math.abs(sample.headPitch - screen.mean.headPitch);
   const headYawDelta = Math.abs(sample.headYaw - screen.mean.headYaw);
-  const headFacesScreen =
-    headPitchDelta <= tolerance(screen.deviation.headPitch, 0.045) &&
-    headYawDelta <= tolerance(screen.deviation.headYaw, 0.06);
+  const headPitchDistance = headPitchDelta / tolerance(screen.deviation.headPitch, 0.045);
+  const headYawDistance = headYawDelta / tolerance(screen.deviation.headYaw, 0.06);
 
   const eyeDistance = (side: "left" | "right") => {
     const xKey = `${side}IrisX` as const;
@@ -73,10 +73,23 @@ function looksAtCalibratedScreen(sample: AttentionFeatures, screen: CalibrationS
     const y = (sample[yKey] - screen.mean[yKey]) / tolerance(screen.deviation[yKey], 0.10);
     return Math.hypot(x, y);
   };
+  const leftEyeDistance = eyeDistance("left");
+  const rightEyeDistance = eyeDistance("right");
   const eyesAreOpen = sample.leftEyeOpen > 0.08 && sample.rightEyeOpen > 0.08;
-  const eyesLookAtScreen = eyesAreOpen && eyeDistance("left") <= 0.9 && eyeDistance("right") <= 0.9;
+  const clearlyScreen = eyesAreOpen &&
+    headPitchDistance <= 1.2 &&
+    headYawDistance <= 1.2 &&
+    leftEyeDistance <= 1.2 &&
+    rightEyeDistance <= 1.2;
+  const clearlyNotebook = eyesAreOpen && (
+    headPitchDistance >= 1.7 ||
+    headYawDistance >= 1.7 ||
+    (leftEyeDistance >= 1.7 && rightEyeDistance >= 1.7)
+  );
 
-  return { looking: headFacesScreen && eyesLookAtScreen, headFacesScreen, eyesLookAtScreen };
+  if (clearlyScreen) return { state: "screen" as const, confidence: 1 };
+  if (clearlyNotebook) return { state: "notebook" as const, confidence: 1 };
+  return { state: "unknown" as const, confidence: 0 };
 }
 
 /**
@@ -98,15 +111,9 @@ export function createCalibration(
 export function classifyFeatures(
   sample: AttentionFeatures,
   calibration: AttentionCalibration,
-): { state: Exclude<AttentionState, "unknown">; confidence: number } {
+): { state: AttentionState; confidence: number } {
   if (!calibration.notebook) {
-    const result = looksAtCalibratedScreen(sample, calibration.screen);
-    return {
-      state: result.looking ? "screen" : "notebook",
-      // The decision is already the union of two explicit signals. Temporal
-      // hysteresis, not a confidence dead-zone, handles noisy frames.
-      confidence: 1,
-    };
+    return classifyScreenOnly(sample, calibration.screen);
   }
   const screenDistance = distanceTo(sample, calibration.screen, calibration.notebook);
   const notebookDistance = distanceTo(sample, calibration.notebook, calibration.screen);

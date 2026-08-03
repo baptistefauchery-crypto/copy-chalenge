@@ -109,7 +109,10 @@ button { touch-action: manipulation; }
 .setup-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .setup-heading .field-label { margin-bottom: 0; }
 .field-label { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 10px; font-weight: 800; }
-.dictation-counter { flex: 0 0 auto; padding: 7px 10px; border: 0; border-radius: 999px; background: var(--violet-soft); color: var(--violet-dark); font: inherit; font-size: 13px; font-weight: 850; line-height: normal; white-space: nowrap; appearance: none; }
+.dictation-counter { flex: 0 0 auto; min-height: 42px; padding: 8px 13px; border: 1px solid rgba(102,84,217,.2); border-radius: 999px; background: var(--violet-soft); color: var(--violet-dark); font: inherit; font-size: 13px; font-weight: 850; line-height: normal; white-space: nowrap; appearance: none; cursor: pointer; touch-action: manipulation; transition: transform .15s ease, background-color .15s ease, box-shadow .15s ease; }
+.dictation-counter:hover { background: #ddd6ff; box-shadow: 0 5px 14px rgba(102,84,217,.16); }
+.dictation-counter:focus-visible { outline: 3px solid rgba(102,84,217,.28); outline-offset: 3px; }
+.dictation-counter:active { transform: scale(.96); }
 .field-label span { font-size: 12px; font-weight: 650; color: var(--muted); }
 .text-input {
   width: 100%; min-height: 142px; resize: vertical; border-radius: 18px; border: 1px solid var(--line);

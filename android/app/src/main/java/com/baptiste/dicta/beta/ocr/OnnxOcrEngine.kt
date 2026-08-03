@@ -28,25 +28,44 @@ class OnnxOcrEngine(private val assets: android.content.res.AssetManager) : Clos
     private var dictionary: List<String>? = null
 
     suspend fun recognize(bitmap: Bitmap): OcrResult = withContext(Dispatchers.Default) {
-        runCatching {
-            val detectedLines = detectLineCrops(bitmap)
-            val crops = if (detectedLines.isEmpty()) listOf(bitmap) else detectedLines
-            val recognized = crops.mapNotNull { crop ->
-                try {
-                    recognizeLine(crop).takeIf { it.text.isNotBlank() }
-                } finally {
-                    if (crop !== bitmap) crop.recycle()
+        runCatching { toOcrResult(recognizeLines(bitmap, allowWholeImageFallback = true)) }
+            .getOrElse { OcrResult("", 0.0) }
+    }
+
+    /**
+     * PP-OCRv6 scan entry point for the challenge flow. Unlike [recognize],
+     * this API does not silently grade the whole page when line detection or
+     * reference anchoring fails. Inspect [OcrLineSelection.status] and ask for
+     * another photo when it is not [OcrSelectionStatus.FOUND].
+     */
+    suspend fun analyze(bitmap: Bitmap, referenceText: String): OcrScanAnalysis = withContext(Dispatchers.Default) {
+        val startedAt = android.os.SystemClock.elapsedRealtime()
+        val lines = recognizeLines(bitmap, allowWholeImageFallback = false)
+        val selection = selectReferenceLines(referenceText, lines)
+        OcrScanAnalysis(
+            modelName = MODEL_NAME,
+            selection = selection,
+            comparison = compareOcrToReference(referenceText, selection.result),
+            processingMs = android.os.SystemClock.elapsedRealtime() - startedAt,
+        )
+    }
+
+    private fun recognizeLines(bitmap: Bitmap, allowWholeImageFallback: Boolean): List<OcrToken> {
+        val detectedLines = detectLineCrops(bitmap)
+        val crops = when {
+            detectedLines.isNotEmpty() -> detectedLines
+            allowWholeImageFallback -> listOf(bitmap)
+            else -> emptyList()
+        }
+        return crops.mapNotNull { crop ->
+            try {
+                recognizeLine(crop).takeIf { it.text.isNotBlank() }?.let {
+                    OcrToken(it.text, it.confidence.coerceIn(0.0, 1.0))
                 }
+            } finally {
+                if (crop !== bitmap) crop.recycle()
             }
-            if (recognized.isEmpty()) {
-                OcrResult("", 0.0)
-            } else {
-                OcrResult(
-                    text = recognized.joinToString(" ") { it.text }.trim(),
-                    confidence = recognized.map { it.confidence }.average().coerceIn(0.0, 1.0),
-                )
-            }
-        }.getOrElse { OcrResult("", 0.0) }
+        }
     }
 
     private fun recognizeLine(source: Bitmap): OcrResult {
@@ -289,4 +308,20 @@ class OnnxOcrEngine(private val assets: android.content.res.AssetManager) : Clos
     }
 
     private data class DetectionBand(val top: Int, val bottom: Int, val minX: Int, val maxX: Int)
+
+    private companion object {
+        const val MODEL_NAME = "PP-OCRv6_small"
+
+        fun toOcrResult(lines: List<OcrToken>): OcrResult {
+            if (lines.isEmpty()) return OcrResult("", 0.0)
+            val weights = lines.map { token -> token.text.count { it.isLetterOrDigit() }.coerceAtLeast(1) }
+            val totalWeight = weights.sum().coerceAtLeast(1)
+            val confidence = lines.zip(weights).sumOf { (line, weight) -> line.confidence * weight } / totalWeight
+            return OcrResult(
+                text = lines.joinToString(" ") { it.text }.trim(),
+                confidence = confidence.coerceIn(0.0, 1.0),
+                tokens = lines,
+            )
+        }
+    }
 }

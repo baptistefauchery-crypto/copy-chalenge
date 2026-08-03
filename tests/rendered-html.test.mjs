@@ -57,7 +57,7 @@ test("ships the Android PWA and local vision assets", async () => {
   ]);
 
   const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /CACHE_VERSION = "copy-challenge-v4"/);
+  assert.match(serviceWorker, /CACHE_VERSION = "copy-challenge-v5"/);
   assert.match(serviceWorker, /url\.pathname\.startsWith\("\/dictionaries\/"\)/);
   assert.match(serviceWorker, /icon-maskable-512\.png/);
 
@@ -125,12 +125,13 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.doesNotMatch(dictaApp, /Arrondi au mot supérieur/);
   assert.match(scoring, /export function calculateScore/);
   assert.match(scoring, /MAX_SCORE = 100/);
-  assert.match(scoring, /SCORE_BASE = 110/);
-  assert.match(scoring, /SCORE_FAULT_WEIGHT = 0\.6/);
-  assert.match(scoring, /SCORE_CONFIDENCE_WEIGHT = 0\.2/);
-  assert.match(scoring, /SCORE_SPEED_WEIGHT = 0\.2/);
-  assert.match(scoring, /SPELLING_PENALTY_MULTIPLIER = 2/);
+  assert.match(scoring, /SCORE_BASE = 100/);
+  assert.match(scoring, /MAX_FAULT_PENALTY = 45/);
+  assert.match(scoring, /MAX_SPEED_ADJUSTMENT = 6/);
+  assert.match(scoring, /MAX_LENGTH_BONUS = 5/);
+  assert.match(scoring, /OCR_CONFIDENCE_SCALE = 4/);
   assert.match(scoring, /REVIEW_SCORE_MULTIPLIER = 0\.8/);
+  assert.match(scoring, /export function calculateScoreBreakdown/);
   assert.match(scoring, /export function getScoreReward/);
   assert.match(globals, /confetti-fall 6\.5s/);
   assert.match(globals, /confetti-from-left/);

@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -36,6 +37,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -184,6 +186,7 @@ fun DictaApp(vm: DictaViewModel = viewModel()) {
                 AppScreen.PLACEMENT -> PlacementScreen(state, vm, coordinator)
                 AppScreen.CALIBRATION -> CalibrationScreen(state, vm, coordinator)
                 AppScreen.SESSION -> SessionScreen(state, vm, coordinator)
+                AppScreen.SCAN -> ScanScreen(state, vm, coordinator)
                 AppScreen.SUMMARY -> SummaryScreen(state, vm)
                 AppScreen.ERROR -> ErrorScreen(state, vm)
             }
@@ -493,8 +496,11 @@ private fun PlacementScreen(state: DictaUiState, vm: DictaViewModel, coordinator
                     )
                 } else {
                     Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("La caméra est utilisée localement et n’enregistre aucune vidéo.", color = Ink, textAlign = TextAlign.Center)
-                        OutlinedButton(onClick = { launcher.launch(Manifest.permission.CAMERA) }) { Text("Autoriser la caméra") }
+                        Text(
+                            "Réponds à la demande Android d’accès à la caméra. Si tu refuses, tu peux continuer en mode manuel.",
+                            color = Ink,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
                 TextButton(onClick = vm::startManualChallenge, modifier = Modifier.align(Alignment.CenterHorizontally)) {
@@ -631,6 +637,11 @@ private fun SessionScreen(state: DictaUiState, vm: DictaViewModel, coordinator: 
         }
     }
     val progress = (session.currentFragment + 1f) / session.exercise.fragments.size.coerceAtLeast(1)
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(durationMillis = 650),
+        label = "progression du challenge",
+    )
     val percent = (progress * 100).toInt()
     val progressColor = Color.hsl(120f * progress.pow(1.65f), .72f, .52f)
 
@@ -640,7 +651,7 @@ private fun SessionScreen(state: DictaUiState, vm: DictaViewModel, coordinator: 
                 Text("Étape ${session.currentFragment + 1} sur ${session.exercise.fragments.size}", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Text("$percent %", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
-            LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape), color = progressColor, trackColor = Ink.copy(alpha = .1f))
+            LinearProgressIndicator(progress = animatedProgress, modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape), color = progressColor, trackColor = Ink.copy(alpha = .1f))
         }
         Card(
             modifier = Modifier.fillMaxWidth().weight(1f),
@@ -659,6 +670,7 @@ private fun SessionScreen(state: DictaUiState, vm: DictaViewModel, coordinator: 
 @Composable
 private fun BoxScope.MemorizingStage(state: DictaUiState, vm: DictaViewModel) {
     val session = state.session ?: return
+    val fragmentDetail = session.exercise.fragmentDetails[session.currentFragment]
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -673,6 +685,16 @@ private fun BoxScope.MemorizingStage(state: DictaUiState, vm: DictaViewModel) {
         )
         Spacer(Modifier.height(20.dp))
         Text(session.fragment, modifier = Modifier.fillMaxWidth(), color = Ink, fontSize = 43.sp, lineHeight = 46.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+        if (fragmentDetail.endsVerse) {
+            Spacer(Modifier.height(12.dp))
+            Box(
+                Modifier
+                    .width(84.dp)
+                    .height(7.dp)
+                    .clip(CircleShape)
+                    .background(levelColor(session.exercise.level)),
+            )
+        }
         Spacer(Modifier.height(18.dp))
         Text("Mémorise ces mots, puis écris-les sur ton cahier.", color = Muted, lineHeight = 21.sp, textAlign = TextAlign.Center)
         Spacer(Modifier.weight(1f))
@@ -698,13 +720,117 @@ private fun BoxScope.DecisionStage(vm: DictaViewModel) {
                 modifier = Modifier.weight(1f).height(70.dp),
                 shape = ButtonShape,
                 colors = ButtonDefaults.buttonColors(containerColor = VioletSoft, contentColor = VioletDark),
-            ) { Text("↶  Revoir", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp) }
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("↶", fontWeight = FontWeight.Black, fontSize = 31.sp, lineHeight = 31.sp)
+                    Text("Revoir", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                }
+            }
             Button(
                 onClick = vm::continueFragment,
                 modifier = Modifier.weight(1f).height(70.dp),
                 shape = ButtonShape,
                 colors = ButtonDefaults.buttonColors(containerColor = Violet, contentColor = Color.White),
-            ) { Text("Continuer  →", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp) }
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Continuer", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                    Text("→", fontWeight = FontWeight.Black, fontSize = 31.sp, lineHeight = 31.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: CameraCoordinator) {
+    val analysis = state.ocrAnalysis
+    AppColumn(onClose = vm::reset, scroll = true) {
+        Eyebrow("Vérification de la copie")
+        Text(
+            "Scanne ton texte",
+            color = Ink,
+            fontSize = 42.sp,
+            lineHeight = 43.sp,
+            fontWeight = FontWeight.Black,
+        )
+        Text(
+            "Cadre le début de la dictée et toute la phrase. PP-OCRv6 ignorera les exercices précédents.",
+            color = Muted,
+            lineHeight = 21.sp,
+        )
+        Spacer(Modifier.height(14.dp))
+        Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = PaperStrong.copy(alpha = .94f))) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(.78f)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color(0xFF171627)),
+                ) {
+                    CameraPreview(coordinator, CameraMode.BACK, Modifier.fillMaxSize()) { vm.ocrCaptureFailed() }
+                    Canvas(Modifier.fillMaxSize()) {
+                        drawRect(Color.Black.copy(alpha = .12f))
+                        val guide = Rect(size.width * .07f, size.height * .12f, size.width * .93f, size.height * .88f)
+                        drawRoundRect(
+                            color = Color.White.copy(alpha = .96f),
+                            topLeft = guide.topLeft,
+                            size = guide.size,
+                            cornerRadius = CornerRadius(24f, 24f),
+                            style = Stroke(width = 5f),
+                        )
+                    }
+                    if (state.ocrScanStage == OcrScanStage.PROCESSING) {
+                        Box(
+                            Modifier.fillMaxSize().background(Ink.copy(alpha = .78f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Analyse PP-OCRv6…", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                        }
+                    }
+                }
+
+                when (state.ocrScanStage) {
+                    OcrScanStage.READY -> {
+                        Text(
+                            "La caméra arrière est utilisée sans effet miroir. La photo reste sur ce téléphone.",
+                            color = Muted,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        PrimaryButton("Scanner mon texte", onClick = {
+                            coordinator.capture(vm::scanHandwriting) { vm.ocrCaptureFailed() }
+                        })
+                    }
+                    OcrScanStage.PROCESSING -> Unit
+                    OcrScanStage.ERROR -> {
+                        Text(state.ocrMessage ?: "La copie n’a pas pu être reconnue.", color = Coral, lineHeight = 20.sp, textAlign = TextAlign.Center)
+                        PrimaryButton("Reprendre une photo", vm::retryOcrScan)
+                    }
+                    OcrScanStage.REVIEW -> {
+                        val recognized = analysis?.selection?.result?.text.orEmpty()
+                        val confidence = analysis?.selection?.result?.confidence ?: 0.0
+                        val differences = analysis?.comparison?.differences.orEmpty()
+                        Surface(shape = RoundedCornerShape(18.dp), color = VioletSoft.copy(alpha = .72f)) {
+                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Text(
+                                    if (differences.isEmpty()) "Le texte correspond à la dictée." else "${differences.size} différence${if (differences.size > 1) "s" else ""} détectée${if (differences.size > 1) "s" else ""}.",
+                                    color = Ink,
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                                Text("Confiance OCR : ${(confidence * 100).toInt()} %", color = Muted, fontSize = 13.sp)
+                                Text("Texte reconnu : $recognized", color = Ink, fontSize = 13.sp, lineHeight = 18.sp)
+                            }
+                        }
+                        PrimaryButton("Afficher mon score", vm::showScoreAfterScan)
+                        TextButton(onClick = vm::retryOcrScan, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                            Text("Reprendre une photo", color = Muted, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -727,6 +853,7 @@ private fun SummaryScreen(state: DictaUiState, vm: DictaViewModel) {
         revealedScore = score
         revealComplete = true
         rewardFeatured = true
+        if (score > 0) playConfettiChime()
         if (score > 80) playScoreFanfare()
         delay(REWARD_FEATURE_DURATION_MS)
         rewardFeatured = false
@@ -782,11 +909,13 @@ private fun RewardDisplay(score: Int, featured: Boolean) {
         Badge.TROPHY -> "🏆" to "Coupe en or"
     }
     val stars = "★".repeat(reward.stars)
-    val scale = if (featured) 1.55f else 1f
+    val scale = if (featured) 2.2f else 1f
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = if (featured) 24.dp else 6.dp)
+            .clip(RoundedCornerShape(if (featured) 28.dp else 0.dp))
+            .background(if (featured) Color.White.copy(alpha = .96f) else Color.Transparent)
+            .padding(vertical = if (featured) 34.dp else 6.dp, horizontal = if (featured) 12.dp else 0.dp)
             .semantics { contentDescription = if (reward.stars == 0) "Aucune étoile" else "${reward.stars} étoiles${badge?.let { ", ${it.second}" } ?: ""}" },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -830,7 +959,7 @@ private fun BoxScope.ConfettiField() {
     LaunchedEffect(Unit) {
         fall.animateTo(1f, tween(CONFETTI_TOTAL_DURATION_MS, easing = LinearEasing))
     }
-    val colors = listOf(Coral, Violet, Success, Color(0xFFF3B34F))
+    val colors = listOf(Color(0xFFFF4F68), Color(0xFF6B3CFF), Color(0xFF18B96B), Color(0xFFFFB000), Color(0xFF00A8FF))
     val elapsedMs = (fall.value * CONFETTI_TOTAL_DURATION_MS).toInt()
     Canvas(Modifier.matchParentSize()) {
         repeat(56) { index ->
@@ -851,8 +980,8 @@ private fun BoxScope.ConfettiField() {
             }
             if (opacity <= 0f) return@repeat
 
-            val width = 9f
-            val height = 14f
+            val width = 15f
+            val height = 24f
             val top = if (origin == "top") -18f else size.height * (18f + ((index * 23) % 58)) / 100f
             val left = when (origin) {
                 "left" -> -12f
@@ -869,7 +998,7 @@ private fun BoxScope.ConfettiField() {
             val y = if (origin == "top") top - 18f + movement * (size.height + 80f) else top + movement * size.height * .62f
             val angle = if (origin == "right") rotation - movement * 540f else rotation + movement * if (origin == "left") 540f else 420f
             withTransform({ rotate(angle, Offset(x + width / 2f, y + height / 2f)) }) {
-                drawRoundRect(colors[index % colors.size].copy(alpha = opacity), Offset(x, y), Size(width, height), CornerRadius(3f, 3f))
+                drawRoundRect(colors[index % colors.size].copy(alpha = opacity), Offset(x, y), Size(width, height), CornerRadius(4f, 4f))
             }
         }
     }
@@ -926,6 +1055,7 @@ private fun Pill(text: String, onClick: (() -> Unit)? = null) {
     val click = onClick
     val pillModifier = click?.let {
         Modifier
+            .defaultMinSize(minWidth = 132.dp, minHeight = 48.dp)
             .clickable(role = Role.Button, onClick = it)
             .semantics { contentDescription = "Passer au challenge suivant" }
     } ?: Modifier
@@ -974,6 +1104,15 @@ private fun playCalibrationBeep() {
         ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 75).apply {
             startTone(ToneGenerator.TONE_PROP_BEEP, 220)
             Thread { Thread.sleep(260); release() }.start()
+        }
+    }
+}
+
+private fun playConfettiChime() {
+    runCatching {
+        ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 82).apply {
+            startTone(ToneGenerator.TONE_PROP_ACK, 340)
+            Thread { Thread.sleep(380); release() }.start()
         }
     }
 }

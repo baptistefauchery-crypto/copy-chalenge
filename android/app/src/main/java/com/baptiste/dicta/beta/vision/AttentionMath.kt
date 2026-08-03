@@ -58,8 +58,8 @@ fun summarizeSamples(samples: List<AttentionFeatures>): CalibrationSample {
 fun classifyFeatures(sample: AttentionFeatures, calibration: AttentionCalibration): Pair<AttentionState, Double> {
     val screen = calibration.screen
     fun tolerance(deviation: Double, floor: Double) = max(floor, deviation * 3)
-    val headFacesScreen = abs(sample.headPitch - screen.mean.headPitch) <= tolerance(screen.deviation.headPitch, 0.045) &&
-        abs(sample.headYaw - screen.mean.headYaw) <= tolerance(screen.deviation.headYaw, 0.06)
+    val headPitchDistance = abs(sample.headPitch - screen.mean.headPitch) / tolerance(screen.deviation.headPitch, 0.045)
+    val headYawDistance = abs(sample.headYaw - screen.mean.headYaw) / tolerance(screen.deviation.headYaw, 0.06)
     fun eyeDistance(x: Double, y: Double, screenX: Double, screenY: Double, dx: Double, dy: Double): Double {
         val normalizedX = (x - screenX) / tolerance(dx, 0.09)
         val normalizedY = (y - screenY) / tolerance(dy, 0.10)
@@ -68,13 +68,22 @@ fun classifyFeatures(sample: AttentionFeatures, calibration: AttentionCalibratio
     val eyesOpen = sample.leftEyeOpen > 0.08 && sample.rightEyeOpen > 0.08
     val left = eyeDistance(sample.leftIrisX, sample.leftIrisY, screen.mean.leftIrisX, screen.mean.leftIrisY, screen.deviation.leftIrisX, screen.deviation.leftIrisY)
     val right = eyeDistance(sample.rightIrisX, sample.rightIrisY, screen.mean.rightIrisX, screen.mean.rightIrisY, screen.deviation.rightIrisX, screen.deviation.rightIrisY)
-    val screenLooking = headFacesScreen && eyesOpen && left <= 0.9 && right <= 0.9
-    return if (screenLooking) AttentionState.SCREEN to 1.0 else AttentionState.NOTEBOOK to 1.0
+    val clearlyScreen = eyesOpen && headPitchDistance <= 1.2 && headYawDistance <= 1.2 && left <= 1.2 && right <= 1.2
+    val clearlyNotebook = eyesOpen && (
+        headPitchDistance >= 1.7 ||
+            headYawDistance >= 1.7 ||
+            (left >= 1.7 && right >= 1.7)
+        )
+    return when {
+        clearlyScreen -> AttentionState.SCREEN to 1.0
+        clearlyNotebook -> AttentionState.NOTEBOOK to 1.0
+        else -> AttentionState.UNKNOWN to 0.0
+    }
 }
 
 class AttentionStabilizer(
-    private val enterNotebookMs: Long = 220,
-    private val returnScreenMs: Long = 700,
+    private val enterNotebookMs: Long = 900,
+    private val returnScreenMs: Long = 1_200,
     private val minimumConfidence: Double = 0.18,
 ) {
     private var stable = AttentionState.UNKNOWN

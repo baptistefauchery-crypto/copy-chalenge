@@ -10,15 +10,18 @@ import com.baptiste.dicta.beta.data.normalizeProgress
 import com.baptiste.dicta.beta.data.sortLeaderboard
 import com.baptiste.dicta.beta.domain.Badge
 import com.baptiste.dicta.beta.domain.DetectionMode
+import com.baptiste.dicta.beta.domain.FragmentMode
 import com.baptiste.dicta.beta.domain.SessionEvent
 import com.baptiste.dicta.beta.domain.SessionPhase
 import com.baptiste.dicta.beta.domain.SchoolLevel
 import com.baptiste.dicta.beta.domain.ScoreOptions
 import com.baptiste.dicta.beta.domain.calculateScore
+import com.baptiste.dicta.beta.domain.calculateScoreBreakdown
 import com.baptiste.dicta.beta.domain.createExercise
 import com.baptiste.dicta.beta.domain.createSession
 import com.baptiste.dicta.beta.domain.reduceSession
 import com.baptiste.dicta.beta.domain.rewardFor
+import com.baptiste.dicta.beta.domain.splitTextIntoFragmentDetails
 import com.baptiste.dicta.beta.domain.splitTextIntoFragments
 import com.baptiste.dicta.beta.ocr.ComparisonStatus
 import com.baptiste.dicta.beta.ocr.OcrResult
@@ -31,45 +34,34 @@ import org.junit.Test
 
 class DomainAndOcrTest {
     @Test
-    fun stableCorpusAndLabelsMatchVersion52() {
+    fun corpusIncludesOrderedLaFontaineChallengesAndLevelLabels() {
         assertEquals(
             listOf(
                 "CP — Cours préparatoire",
                 "CE1 — Cours élémentaire 1re année",
-                "CE2 — Cours élémentaire 2e année",
-                "CM1 — Cours moyen 1re année",
-                "CM2 — Cours moyen 2e année",
+                "Niveau intermédiaire",
+                "Niveau avancé",
+                "Perfectionnement",
             ),
             SchoolLevel.values().map { it.label },
         )
         assertEquals(listOf(6, 8, 10, 12, 14), SchoolLevel.values().map { it.recommendedLetters })
         assertEquals(15, SchoolLevel.values().sumOf { it.texts.size })
-        assertEquals(
-            listOf(
-                "Lina a un vélo. Elle roule dans la cour.",
-                "Le chat dort sur le tapis. Il rêve d’une souris.",
-                "Milo joue avec sa balle. Puis il rentre à la maison.",
-                "Les petits lapins mangent des carottes dans le jardin.",
-                "Ce matin, Zoé prépare son cartable et cherche ses crayons.",
-                "La pluie tombe, mais les enfants jouent sous le préau.",
-                "Hier, les élèves ont planté des graines près de l’école.",
-                "Le vieux bateau avance lentement entre les rochers.",
-                "Demain, nous visiterons le musée avec notre classe.",
-                "Quand le vent se lève, les grandes branches bougent et les oiseaux s’envolent.",
-                "L’année dernière, nous avons découvert un sentier qui longeait la rivière.",
-                "Mes cousins sont partis tôt, mais ils ont oublié leurs gourdes.",
-                "Après la pluie, les chemins glissants que nous avions suivis brillaient sous les éclaircies.",
-                "Si tu prends le temps de relire tes phrases, tu repéreras les accords oubliés.",
-                "Les exploratrices avaient préparé leurs sacs avant de partir vers les montagnes enneigées.",
-            ),
-            SchoolLevel.values().flatMap { it.texts },
-        )
+        assertTrue(SchoolLevel.CM1.texts.first().startsWith("La Cigale, ayant chanté\nTout l’été,"))
+        assertTrue(SchoolLevel.CM1.texts.first().contains("Chez la Fourmi sa voisine,"))
+        assertTrue(SchoolLevel.CM2.texts[0].startsWith("Maître Corbeau,"))
+        assertTrue(SchoolLevel.CM2.texts[0].contains("Le Renard s’en saisit"))
+        assertTrue(SchoolLevel.CM2.texts[1].startsWith("La raison du plus fort"))
+        assertTrue(SchoolLevel.CM2.texts[1].contains("Le Loup l’emporte"))
+        assertEquals(FragmentMode.LETTERS, SchoolLevel.CM1.dictations.first().fragmentMode)
+        assertEquals(FragmentMode.VERSES, SchoolLevel.CM2.dictations[0].fragmentMode)
+        assertEquals(FragmentMode.VERSES, SchoolLevel.CM2.dictations[1].fragmentMode)
     }
 
     @Test
     fun splitterReachesTargetAtWordBoundaryAndNeverCrossesSentence() {
         assertEquals(
-            listOf("Un petit chat dort.", "Il rêve dans la", "maison."),
+            listOf("Un petit chat dort.", "Il rêve dans la maison."),
             splitTextIntoFragments("  Un   petit chat dort.  Il rêve dans la maison. ", maxLetters = 12),
         )
         assertEquals(
@@ -78,6 +70,52 @@ class DomainAndOcrTest {
         )
         assertEquals(listOf("extraordinaire"), splitTextIntoFragments("extraordinaire", maxLetters = 4))
         assertEquals(emptyList<String>(), splitTextIntoFragments(" \n\t ", maxLetters = 8))
+    }
+
+    @Test
+    fun splitterAlwaysKeepsRequestedDeterminersWithFollowingWord() {
+        val source = "Voir le grand Corbeau et la Fourmi avec un Renard, une Cigale, des graines, les bois, au matin et aux champs."
+        val fragments = splitTextIntoFragments(source, maxLetters = 4)
+        val forbiddenEnd = Regex("(?:^|\\s)(?:le|la|l[’']|un|une|des|les|au|aux)$", RegexOption.IGNORE_CASE)
+
+        assertTrue(fragments.size > 2)
+        assertTrue(fragments.none { forbiddenEnd.containsMatchIn(it) })
+        assertEquals(source, fragments.joinToString(" "))
+    }
+
+    @Test
+    fun perfectionnementUsesOneFragmentPerVerseAndExposesVerseEnds() {
+        val exercise = createExercise(SchoolLevel.CM2, maxLetters = 1, index = 0)
+        val sourceLines = exercise.sourceText.lines().filter(String::isNotBlank)
+
+        assertEquals(sourceLines.size, exercise.fragments.size)
+        assertEquals(
+            listOf(
+                "Maître Corbeau, sur un arbre perché,",
+                "Tenait en son bec un fromage.",
+                "Maître Renard, par l’odeur alléché,",
+            ),
+            exercise.fragments.take(3),
+        )
+        assertTrue(exercise.fragmentDetails.all { it.endsVerse })
+    }
+
+    @Test
+    fun advancedPoemKeepsVerseBoundaryMetadataWithLetterFragments() {
+        val definition = SchoolLevel.CM1.dictations.first()
+        val details = splitTextIntoFragmentDetails(
+            definition.text,
+            maxLetters = 8,
+            mode = definition.fragmentMode,
+            preserveVerseBreaks = definition.preserveVerseBreaks,
+        )
+
+        assertEquals("La Cigale,", details[0].text)
+        assertFalse(details[0].endsVerse)
+        assertEquals("ayant chanté", details[1].text)
+        assertTrue(details[1].endsVerse)
+        assertEquals("Tout l’été,", details[2].text)
+        assertTrue(details[2].endsVerse)
     }
 
     @Test
@@ -95,21 +133,110 @@ class DomainAndOcrTest {
     }
 
     @Test
-    fun scoreMatchesStableFormulaAndIgnoresOcrCompatibilityOptions() {
-        assertEquals(80, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 0))
-        assertEquals(64, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 1))
-        assertEquals(51, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 2))
-        assertEquals(100, calculateScore("abcd", elapsedMs = 0L, reviewCount = 0))
-        assertEquals(80, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = -3))
-        assertEquals(0, calculateScore("123 !", elapsedMs = 1_000L, reviewCount = 0))
-
-        val hostileOcrOptions = ScoreOptions(
-            spellingFaults = 999,
-            wordCount = 1,
-            ocrConfidence = 0.0,
-            speedReferenceLettersPerSecond = 999.0,
+    fun scoreUsesTheSameMultiFactorFormulaAsTheWebDomain() {
+        val perfect = ScoreOptions(
+            spellingFaults = 0,
+            wordCount = 3,
+            ocrConfidence = 0.91,
+            speedReferenceLettersPerSecond = 2.0,
         )
-        assertEquals(80, calculateScore("abcd", 4_000L, 0, hostileOcrOptions))
+
+        assertEquals(100, calculateScore("Le chat dort", 5_000L, 0, perfect))
+        assertEquals(88, calculateScore("Le chat dort", 5_000L, 0, perfect.copy(spellingFaults = 1)))
+        assertEquals(82, calculateScore("Le chat dort", 5_000L, 1, perfect))
+        assertEquals(99, calculateScore("Le chat dort", 10_000L, 0, perfect))
+        assertEquals(58, calculateScore("Le chat dort", 5_000L, 0, perfect.copy(spellingFaults = 3)))
+        assertEquals(0, calculateScore("123 !", 1_000L, 0, perfect))
+
+        // The compatibility overload uses neutral OCR/fault values until the scan is available.
+        assertEquals(98, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 0))
+        assertEquals(78, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 1))
+        assertEquals(63, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 2))
+        assertEquals(100, calculateScore("abcd", elapsedMs = 0L, reviewCount = 0))
+        assertEquals(98, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = -3))
+        assertEquals(0, calculateScore("123 !", elapsedMs = 1_000L, reviewCount = 0))
+    }
+
+    @Test
+    fun rawScoreCanExceedOneHundredBeforeTheDisplayCap() {
+        val result = calculateScoreBreakdown(
+            text = "a".repeat(250),
+            elapsedMs = 83_333L,
+            options = ScoreOptions(
+                spellingFaults = 0,
+                wordCount = 25,
+                ocrConfidence = 1.0,
+                speedReferenceLettersPerSecond = 2.0,
+            ),
+        )
+
+        assertEquals(112.0, result.rawScore, 0.000_001)
+        assertEquals(100, result.score)
+        assertEquals(5.0, result.lengthBonus, 0.0)
+        assertEquals(6.0, result.speedAdjustment, 0.0)
+        assertEquals(1.0, result.confidenceAdjustment, 0.0)
+    }
+
+    @Test
+    fun scoreCanReachOneHundredWithoutPerfectSpeedOrReadability() {
+        val result = calculateScoreBreakdown(
+            text = "abcdefghij",
+            elapsedMs = 6_667L,
+            options = ScoreOptions(
+                spellingFaults = 0,
+                wordCount = 1,
+                ocrConfidence = 0.75,
+                speedReferenceLettersPerSecond = 2.0,
+            ),
+        )
+
+        assertEquals(100.0, result.rawScore, 0.001)
+        assertEquals(100, result.score)
+    }
+
+    @Test
+    fun reviewsOutweighFaultsSpeedAndOcrConfidence() {
+        val text = "a".repeat(50)
+        val options = ScoreOptions(
+            spellingFaults = 0,
+            wordCount = 5,
+            ocrConfidence = 0.75,
+            speedReferenceLettersPerSecond = 2.0,
+        )
+        val baseline = calculateScoreBreakdown(text, 33_333L, 0, options)
+        val oneReview = calculateScoreBreakdown(text, 33_333L, 1, options)
+        val oneFault = calculateScoreBreakdown(text, 33_333L, 0, options.copy(spellingFaults = 1))
+        val slowest = calculateScoreBreakdown(text, Long.MAX_VALUE, 0, options)
+        val unreadable = calculateScoreBreakdown(text, 33_333L, 0, options.copy(ocrConfidence = 0.0))
+
+        assertEquals(100.0, baseline.rawScore, 0.001)
+        assertTrue(baseline.rawScore - oneReview.rawScore > baseline.rawScore - oneFault.rawScore)
+        assertTrue(baseline.rawScore - oneFault.rawScore > baseline.rawScore - slowest.rawScore)
+        assertTrue(baseline.rawScore - slowest.rawScore > baseline.rawScore - unreadable.rawScore)
+        assertEquals(0.8, oneReview.reviewMultiplier, 0.0)
+        assertEquals(9.0, oneFault.faultPenalty, 0.0)
+        assertEquals(-6.0, slowest.speedAdjustment, 0.000_001)
+        assertEquals(-3.0, unreadable.confidenceAdjustment, 0.0)
+    }
+
+    @Test
+    fun malformedFloatingPointInputsStayFiniteAndBounded() {
+        val result = calculateScoreBreakdown(
+            text = "abcdefghij",
+            elapsedMs = 1_000L,
+            reviewCount = -4,
+            options = ScoreOptions(
+                spellingFaults = Int.MAX_VALUE,
+                wordCount = 0,
+                ocrConfidence = Double.NaN,
+                speedReferenceLettersPerSecond = Double.NaN,
+            ),
+        )
+
+        assertTrue(result.rawScore.isFinite())
+        assertTrue(result.score in 0..100)
+        assertEquals(1.0, result.reviewMultiplier, 0.0)
+        assertEquals(-3.0, result.confidenceAdjustment, 0.0)
     }
 
     @Test

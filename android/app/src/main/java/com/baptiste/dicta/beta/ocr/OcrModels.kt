@@ -10,10 +10,13 @@ data class OcrResult(
 
 enum class ComparisonStatus { MATCH, PROBABLE, UNCERTAIN }
 
+enum class DifferenceKind { INSERT, DELETE, REPLACE }
+
 data class WordDifference(
     val reference: String,
     val recognized: String,
     val status: ComparisonStatus,
+    val kind: DifferenceKind = DifferenceKind.REPLACE,
 )
 
 data class OcrComparison(
@@ -23,6 +26,13 @@ data class OcrComparison(
     val status: ComparisonStatus,
     val matches: Boolean,
     val differences: List<WordDifference>,
+)
+
+data class OcrScanAnalysis(
+    val modelName: String,
+    val selection: OcrLineSelection,
+    val comparison: OcrComparison,
+    val processingMs: Long,
 )
 
 private val wordPattern = Regex("[\\p{L}\\p{M}\\p{N}]+(?:['’][\\p{L}\\p{M}\\p{N}]+)*")
@@ -38,15 +48,7 @@ fun compareOcrToReference(reference: String, result: OcrResult): OcrComparison {
     val normalizedRecognized = normalizeOcr(result.text)
     val referenceWords = wordPattern.findAll(normalizedReference).map { it.value }.toList()
     val recognizedWords = wordPattern.findAll(normalizedRecognized).map { it.value }.toList()
-    val differences = mutableListOf<WordDifference>()
-    val size = maxOf(referenceWords.size, recognizedWords.size)
-    repeat(size) { index ->
-        val expected = referenceWords.getOrNull(index).orEmpty()
-        val actual = recognizedWords.getOrNull(index).orEmpty()
-        if (expected != actual) {
-            differences += WordDifference(expected, actual, statusFor(result.confidence))
-        }
-    }
+    val differences = alignWordDifferences(referenceWords, recognizedWords, result.confidence)
     val exact = normalizedReference == normalizedRecognized && normalizedReference.isNotEmpty()
     return OcrComparison(
         reference = reference,
@@ -56,6 +58,68 @@ fun compareOcrToReference(reference: String, result: OcrResult): OcrComparison {
         matches = exact,
         differences = differences,
     )
+}
+
+private fun alignWordDifferences(
+    reference: List<String>,
+    recognized: List<String>,
+    confidence: Double,
+): List<WordDifference> {
+    val costs = Array(reference.size + 1) { row -> IntArray(recognized.size + 1) { column -> row + column } }
+    for (row in 1..reference.size) {
+        for (column in 1..recognized.size) {
+            costs[row][column] = minOf(
+                costs[row - 1][column] + 1,
+                costs[row][column - 1] + 1,
+                costs[row - 1][column - 1] + if (reference[row - 1] == recognized[column - 1]) 0 else 1,
+            )
+        }
+    }
+
+    val differences = mutableListOf<WordDifference>()
+    var row = reference.size
+    var column = recognized.size
+    while (row > 0 || column > 0) {
+        if (row > 0 && column > 0 && reference[row - 1] == recognized[column - 1]) {
+            row--
+            column--
+            continue
+        }
+        val replacementCost = if (row > 0 && column > 0) costs[row - 1][column - 1] else Int.MAX_VALUE
+        val deletionCost = if (row > 0) costs[row - 1][column] else Int.MAX_VALUE
+        val insertionCost = if (column > 0) costs[row][column - 1] else Int.MAX_VALUE
+        when (minOf(replacementCost, deletionCost, insertionCost)) {
+            replacementCost -> {
+                differences += WordDifference(
+                    reference = reference[row - 1],
+                    recognized = recognized[column - 1],
+                    status = statusFor(confidence),
+                    kind = DifferenceKind.REPLACE,
+                )
+                row--
+                column--
+            }
+            deletionCost -> {
+                differences += WordDifference(
+                    reference = reference[row - 1],
+                    recognized = "",
+                    status = statusFor(confidence),
+                    kind = DifferenceKind.DELETE,
+                )
+                row--
+            }
+            else -> {
+                differences += WordDifference(
+                    reference = "",
+                    recognized = recognized[column - 1],
+                    status = statusFor(confidence),
+                    kind = DifferenceKind.INSERT,
+                )
+                column--
+            }
+        }
+    }
+    return differences.asReversed()
 }
 
 private fun statusFor(confidence: Double) = if (confidence >= 0.8) ComparisonStatus.PROBABLE else ComparisonStatus.UNCERTAIN

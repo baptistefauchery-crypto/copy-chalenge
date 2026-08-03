@@ -16,8 +16,8 @@ export class AttentionStabilizer {
   private readonly minimumConfidence: number;
 
   constructor(options: StabilizerOptions = {}) {
-    this.notebookMs = options.enterNotebookMs ?? 300;
-    this.screenMs = options.returnScreenMs ?? 500;
+    this.notebookMs = options.enterNotebookMs ?? 850;
+    this.screenMs = options.returnScreenMs ?? 1000;
     this.minimumConfidence = options.minimumConfidence ?? 0.18;
   }
 

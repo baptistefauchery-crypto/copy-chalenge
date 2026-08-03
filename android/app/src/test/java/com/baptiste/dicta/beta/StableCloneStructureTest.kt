@@ -5,7 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Guards the visible stable-v52 contract against accidental beta/OCR regressions. */
+/** Guards the Android beta flow, including the required local OCR gate. */
 class StableCloneStructureTest {
     private val sourceRoot = File("src/main/java/com/baptiste/dicta/beta")
 
@@ -24,13 +24,16 @@ class StableCloneStructureTest {
             "Revoir les mots ?",
             "Bravo, c’est terminé !",
             "Préparer le challenge suivant",
+            "Scanner mon texte",
+            "Analyse PP-OCRv6",
+            "CameraMode.BACK",
+            "Afficher mon score",
             "SCORE_REVEAL_DURATION_MS = 1_800",
             "REWARD_FEATURE_DURATION_MS = 2_400L",
             "if (score > 80) playScoreFanfare()",
         ).forEach { expected -> assertTrue("Missing stable UI contract: $expected", ui.contains(expected)) }
 
-        assertFalse(ui.contains("OcrScreen"))
-        assertFalse(ui.contains("Photographiez votre feuille"))
+        assertFalse(ui.contains("Autoriser la caméra"))
         assertFalse(ui.contains("bêta copy chalenge"))
     }
 
@@ -60,21 +63,25 @@ class StableCloneStructureTest {
     }
 
     @Test
-    fun viewModelUsesWorkingCalibrationDirectScoreAndFailClosedTiming() {
+    fun viewModelUsesWorkingCalibrationOcrScoreAndConservativeGazeTiming() {
         val viewModel = sourceRoot.resolve("DictaViewModel.kt").readText()
 
         listOf(
             "SessionEvent.BeginCalibration",
             "SessionEvent.CalibrationCompleted",
             "SessionEvent.Start(now)",
-            "calculateScore(session.exercise.sourceText, elapsed, session.totalReviews)",
+            "screen = AppScreen.SCAN",
+            "ocrEngine.analyze(bitmap, session.exercise.sourceText)",
+            "options = ScoreOptions(",
+            "hasSeenScreenInFragment",
             "now - lastCameraReadingAt > 1_200L",
             "autoHideBlockedUntil = now + 2_000L",
-            "!reading.faceDetected || reading.state == AttentionState.NOTEBOOK",
+            "reading.faceDetected &&",
+            "reading.state == AttentionState.NOTEBOOK",
         ).forEach { expected -> assertTrue("Missing stable flow contract: $expected", viewModel.contains(expected)) }
 
-        assertFalse(viewModel.contains("OnnxOcrEngine"))
-        assertFalse(viewModel.contains("startOcr"))
+        assertTrue(viewModel.contains("OnnxOcrEngine"))
+        assertFalse(viewModel.contains("!reading.faceDetected || reading.state == AttentionState.NOTEBOOK"))
         assertFalse(viewModel.contains("finishWithoutOcr"))
     }
 

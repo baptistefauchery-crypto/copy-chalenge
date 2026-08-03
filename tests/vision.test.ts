@@ -74,19 +74,27 @@ test("requires the head and the eyes to point at the screen", () => {
   const calibration = createScreenCalibration(screen);
 
   assert.equal(
-    classifyFeatures(features({ leftIrisX: 0.75, rightIrisX: 0.75 }), calibration).state,
-    "notebook",
-    "a head facing the screen is not enough when the eyes look away",
+    classifyFeatures(features({ leftIrisX: 0.62, rightIrisX: 0.62 }), calibration).state,
+    "unknown",
+    "a small eye movement must not hide the fragment immediately",
   );
   assert.equal(
     classifyFeatures(features({ headPitch: 0.29, headYaw: 0.16 }), calibration).state,
     "notebook",
-    "eyes pointing at the screen are not enough when the head looks away",
+    "a clearly different head pose is enough to leave the screen",
   );
   assert.equal(
     classifyFeatures(features({ headPitch: 0.29, headYaw: 0.16, leftIrisX: 0.75, rightIrisX: 0.75 }), calibration).state,
     "notebook",
-    "both head and eyes must be away",
+    "a clearly different head and eye pose is notebook evidence",
+  );
+});
+
+test("keeps an ambiguous pose out of the notebook state", () => {
+  const calibration = createScreenCalibration(calibrationSample(features({})));
+  assert.equal(
+    classifyFeatures(features({ headPitch: 0.26, leftIrisY: 0.58, rightIrisY: 0.58 }), calibration).state,
+    "unknown",
   );
 });
 
