@@ -7,6 +7,31 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+let deferredInstallEvent: BeforeInstallPromptEvent | null = null;
+const installPromptSubscribers = new Set<
+  (event: BeforeInstallPromptEvent) => void
+>();
+
+// Capture the browser event as soon as the client bundle loads. On a fresh
+// origin, Chrome can dispatch it before React effects have been mounted.
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallEvent = event as BeforeInstallPromptEvent;
+    installPromptSubscribers.forEach((subscriber) =>
+      subscriber(deferredInstallEvent as BeforeInstallPromptEvent),
+    );
+  });
+}
+
+function subscribeToInstallPrompt(
+  subscriber: (event: BeforeInstallPromptEvent) => void,
+) {
+  installPromptSubscribers.add(subscriber);
+  if (deferredInstallEvent) subscriber(deferredInstallEvent);
+  return () => installPromptSubscribers.delete(subscriber);
+}
+
 type StandaloneNavigator = Navigator & { standalone?: boolean };
 
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
@@ -139,24 +164,23 @@ export function PwaProvider() {
       };
     }
 
-    const captureInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallEvent(event as BeforeInstallPromptEvent);
-      setInstallHelp(false);
-    };
     const confirmInstallation = () => {
+      deferredInstallEvent = null;
       setInstallEvent(null);
       setIsInstalled(true);
     };
 
-    window.addEventListener("beforeinstallprompt", captureInstallPrompt);
+    const unsubscribeInstallPrompt = subscribeToInstallPrompt((event) => {
+      setInstallEvent(event);
+      setInstallHelp(false);
+    });
     window.addEventListener("appinstalled", confirmInstallation);
     return () => {
       window.clearTimeout(installationCheckTimer);
       document.removeEventListener("visibilitychange", checkInstalledMode);
       standaloneMediaQuery.removeEventListener("change", checkInstalledMode);
       removeServiceWorkerListener?.();
-      window.removeEventListener("beforeinstallprompt", captureInstallPrompt);
+      unsubscribeInstallPrompt();
       window.removeEventListener("appinstalled", confirmInstallation);
     };
   }, []);
@@ -189,11 +213,11 @@ export function PwaProvider() {
         >
           <button
             type="button"
-            aria-label="Installer Copy Challenge sur ce téléphone"
+            aria-label="Installer bêta copy chalenge sur ce téléphone"
             onClick={requestInstallation}
             style={installButtonStyle}
           >
-            Installer Copy Challenge sur ce téléphone
+            Installer bêta copy chalenge sur ce téléphone
           </button>
           {installHelp && (
             <span
@@ -216,7 +240,7 @@ export function PwaProvider() {
       {updateReady && (
         <aside aria-label="Mise à jour disponible" style={noticeStyle}>
           <span style={{ fontSize: "0.92rem", lineHeight: 1.35 }}>
-            Une nouvelle version de Copy Challenge est disponible.
+            Une nouvelle version de bêta copy chalenge est disponible.
           </span>
           <button type="button" onClick={applyUpdate} style={noticeButtonStyle}>
             Mettre à jour

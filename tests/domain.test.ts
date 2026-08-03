@@ -25,6 +25,13 @@ const exercise: Exercise = {
 
 test("offers three deterministic dictations for every primary class", () => {
   assert.deepEqual(PRIMARY_LEVELS.map((level) => level.id), ["CP", "CE1", "CE2", "CM1", "CM2"]);
+  assert.deepEqual(PRIMARY_LEVELS.map((level) => level.label), [
+    "CP — Cours préparatoire",
+    "CE1 — Cours élémentaire 1re année",
+    "Niveau intermédiaire",
+    "Niveau avancé",
+    "Perfectionnement",
+  ]);
   assert.deepEqual(PRIMARY_LEVELS.map((level) => level.recommendedLetters), [6, 8, 10, 12, 14]);
 
   for (const level of PRIMARY_LEVELS) {
@@ -38,14 +45,22 @@ test("offers three deterministic dictations for every primary class", () => {
   }
 });
 
-test("keeps the score between zero and one hundred", () => {
-  assert.equal(calculateScore("Un joli mot", 12000), calculateScore("Douze mots", 12000));
-  assert.equal(calculateScore("Le chat dort", 30000), 27);
-  assert.ok(calculateScore("Un challenge plus long", 30000) > calculateScore("Un mot", 30000));
-  assert.ok(calculateScore("Le chat dort", 30000, 1) < calculateScore("Le chat dort", 30000));
-  assert.equal(calculateScore("", 30000), 0);
-  assert.equal(calculateScore("Le chat dort", 1), 100);
-  assert.ok(calculateScore("Le chat dort", 30000) >= 0 && calculateScore("Le chat dort", 30000) <= 100);
+test("calculates the spelling-aware score between zero and one hundred", () => {
+  const perfect = {
+    spellingFaults: 0,
+    wordCount: 3,
+    ocrConfidence: 0.91,
+    speedReferenceLettersPerSecond: 2,
+  };
+
+  assert.equal(calculateScore("Le chat dort", 5000, 0, perfect), 100);
+  assert.equal(calculateScore("Le chat dort", 5000, 0, { ...perfect, spellingFaults: 1 }), 64);
+  assert.equal(calculateScore("Le chat dort", 5000, 1, perfect), 86);
+  assert.equal(calculateScore("Le chat dort", 10000, 0, perfect), 97);
+  assert.equal(calculateScore("Le chat dort", 5000, 0, { ...perfect, spellingFaults: 3, wordCount: 3 }), 42);
+  assert.equal(calculateScore("", 30000, 0, perfect), 0);
+  assert.ok(calculateScore("Le chat dort", 30000, 0, perfect) >= 0);
+  assert.ok(calculateScore("Le chat dort", 30000, 0, perfect) <= 100);
 });
 
 test("assigns stars and awards at the requested score thresholds", () => {
