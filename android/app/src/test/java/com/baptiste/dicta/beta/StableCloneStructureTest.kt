@@ -44,6 +44,22 @@ class StableCloneStructureTest {
     }
 
     @Test
+    fun summaryConfettiMatchesTheWebCelebrationLayer() {
+        val ui = sourceRoot.resolve("DictaApp.kt").readText()
+
+        listOf(
+            "if (revealComplete && score > 0) ConfettiField()",
+            "private fun BoxScope.ConfettiField()",
+            "Modifier.matchParentSize()",
+            "index % 6 == 0 -> \"left\"",
+            "index % 6 == 1 -> \"right\"",
+            "CONFETTI_DURATION_MS = 6_500",
+            "CONFETTI_MAX_DELAY_MS = 4_140",
+            "rotation - movement * 540f",
+        ).forEach { expected -> assertTrue("Missing web confetti contract: $expected", ui.contains(expected)) }
+    }
+
+    @Test
     fun viewModelUsesWorkingCalibrationDirectScoreAndFailClosedTiming() {
         val viewModel = sourceRoot.resolve("DictaViewModel.kt").readText()
 

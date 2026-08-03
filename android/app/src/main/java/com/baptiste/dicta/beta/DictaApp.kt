@@ -13,6 +13,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -81,9 +82,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -95,6 +96,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -112,9 +114,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
-import kotlin.math.PI
 import kotlin.math.pow
-import kotlin.math.sin
 
 private val Paper = Color(0xFFF2C8A7)
 private val PaperStrong = Color(0xFFFFFAF2)
@@ -132,6 +132,9 @@ private const val CALIBRATION_PREPARATION_MS = 2_000L
 private const val CALIBRATION_MEASUREMENT_MS = 1_500L
 private const val SCORE_REVEAL_DURATION_MS = 1_800
 private const val REWARD_FEATURE_DURATION_MS = 2_400L
+private const val CONFETTI_DURATION_MS = 6_500
+private const val CONFETTI_MAX_DELAY_MS = 4_140
+private const val CONFETTI_TOTAL_DURATION_MS = CONFETTI_DURATION_MS + CONFETTI_MAX_DELAY_MS
 
 @Composable
 fun DictaApp(vm: DictaViewModel = viewModel()) {
@@ -257,25 +260,16 @@ private fun TopBar(showInfo: Boolean, infoExpanded: Boolean, onInfo: (() -> Unit
 
 @Composable
 private fun AppLogo() {
-    Canvas(
+    Image(
+        painter = painterResource(R.drawable.dicta_logo),
+        contentDescription = null,
         Modifier
             .size(34.dp)
             .shadow(5.dp, RoundedCornerShape(11.dp))
             .clip(RoundedCornerShape(11.dp))
-            .background(Violet),
-    ) {
-        val page = Path().apply {
-            moveTo(size.width * .24f, size.height * .19f)
-            lineTo(size.width * .69f, size.height * .15f)
-            lineTo(size.width * .76f, size.height * .77f)
-            lineTo(size.width * .30f, size.height * .82f)
-            close()
-        }
-        drawPath(page, PaperStrong)
-        drawLine(Coral, Offset(size.width * .24f, size.height * .67f), Offset(size.width * .76f, size.height * .26f), strokeWidth = size.width * .11f, cap = StrokeCap.Round)
-        drawLine(VioletDark, Offset(size.width * .34f, size.height * .46f), Offset(size.width * .46f, size.height * .58f), strokeWidth = size.width * .08f, cap = StrokeCap.Round)
-        drawLine(VioletDark, Offset(size.width * .46f, size.height * .58f), Offset(size.width * .68f, size.height * .35f), strokeWidth = size.width * .08f, cap = StrokeCap.Round)
-    }
+            .rotate(-3f),
+        contentScale = ContentScale.Crop,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -717,7 +711,6 @@ private fun SummaryScreen(state: DictaUiState, vm: DictaViewModel) {
 
     AppColumn(onClose = vm::reset, scroll = true) {
         Box {
-            if (revealComplete && score > 0) ConfettiField()
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text("Bravo, c’est terminé !", color = Ink, fontSize = 42.sp, lineHeight = 43.sp, fontWeight = FontWeight.Black)
                 Card(
@@ -750,6 +743,7 @@ private fun SummaryScreen(state: DictaUiState, vm: DictaViewModel) {
                     }
                 }
             }
+            if (revealComplete && score > 0) ConfettiField()
         }
     }
 }
@@ -808,18 +802,52 @@ private fun Leaderboard(entries: List<LeaderboardEntry>, currentId: String?, isN
 }
 
 @Composable
-private fun ConfettiField() {
+private fun BoxScope.ConfettiField() {
     val fall = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { fall.animateTo(1f, tween(6_500)) }
+    LaunchedEffect(Unit) {
+        fall.animateTo(1f, tween(CONFETTI_TOTAL_DURATION_MS, easing = LinearEasing))
+    }
     val colors = listOf(Coral, Violet, Success, Color(0xFFF3B34F))
-    Canvas(Modifier.fillMaxWidth().height(560.dp)) {
+    val elapsedMs = (fall.value * CONFETTI_TOTAL_DURATION_MS).toInt()
+    Canvas(Modifier.matchParentSize()) {
         repeat(56) { index ->
-            val seed = ((index * 47) % 101) / 101f
-            val x = size.width * (((index * 37) % 97) / 97f)
-            val origin = if (index % 3 == 0) -size.height * .04f else size.height * (.04f + seed * .18f)
-            val y = origin + fall.value * size.height * (1.05f + seed * .45f)
-            val drift = sin((fall.value * 5f + seed) * PI).toFloat() * 34f
-            drawRoundRect(colors[index % colors.size], Offset(x + drift, y), Size(8f + index % 4, 15f + index % 5), CornerRadius(3f, 3f))
+            val origin = when {
+                index % 6 == 0 -> "left"
+                index % 6 == 1 -> "right"
+                else -> "top"
+            }
+            val delayMs = (index % 16) * 240 + (index / 16) * 180
+            val progress = ((elapsedMs - delayMs).toFloat() / CONFETTI_DURATION_MS).coerceIn(0f, 1f)
+            val movement = 1f - (1f - progress) * (1f - progress)
+            val fadeInEnd = if (origin == "top") .12f else .16f
+            val opacity = when {
+                progress <= 0f -> 0f
+                progress < fadeInEnd -> progress / fadeInEnd
+                progress < 1f -> 1f - ((progress - fadeInEnd) / (1f - fadeInEnd))
+                else -> 0f
+            }
+            if (opacity <= 0f) return@repeat
+
+            val width = 9f
+            val height = 14f
+            val top = if (origin == "top") -18f else size.height * (18f + ((index * 23) % 58)) / 100f
+            val left = when (origin) {
+                "left" -> -12f
+                "right" -> size.width + 12f
+                else -> size.width * (5f + ((index * 19) % 90)) / 100f
+            }
+            val drift = ((index * 31) % 70 - 35).toFloat()
+            val rotation = ((index * 47) % 60 - 30).toFloat()
+            val x = when (origin) {
+                "left" -> left - 30f + movement * (size.width + 80f)
+                "right" -> left + 30f - movement * (size.width + 80f)
+                else -> left + movement * drift
+            }
+            val y = if (origin == "top") top - 18f + movement * (size.height + 80f) else top + movement * size.height * .62f
+            val angle = if (origin == "right") rotation - movement * 540f else rotation + movement * if (origin == "left") 540f else 420f
+            withTransform({ rotate(angle, Offset(x + width / 2f, y + height / 2f)) }) {
+                drawRoundRect(colors[index % colors.size].copy(alpha = opacity), Offset(x, y), Size(width, height), CornerRadius(3f, 3f))
+            }
         }
     }
 }

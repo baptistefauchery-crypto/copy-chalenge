@@ -1,6 +1,7 @@
 package com.baptiste.dicta.beta
 
 import java.io.File
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -13,12 +14,22 @@ class AndroidIdentityStructureTest {
         val manifest = mainSource.resolve("AndroidManifest.xml").readText()
 
         assertTrue(manifest.contains("android:label=\"Copy Challenge\""))
-        assertTrue(manifest.contains("android:icon=\"@drawable/ic_copy_challenge\""))
+        assertTrue(manifest.contains("android:icon=\"@drawable/dicta_logo\""))
         assertTrue(manifest.contains("android:screenOrientation=\"portrait\""))
         assertTrue(manifest.contains("android.permission.CAMERA"))
         assertTrue(manifest.contains("android.permission.INTERNET\" />"))
         assertTrue(manifest.contains("android.permission.ACCESS_NETWORK_STATE\" tools:node=\"remove\""))
         assertFalse(manifest.contains("android:label=\"bêta copy chalenge\""))
+    }
+
+    @Test
+    fun logoUsesTheWebAppAsset() {
+        val logo = mainSource.resolve("res/drawable-nodpi/dicta_logo.png")
+        val webLogo = File("../../public/icons/icon-192.png")
+
+        assertTrue("Missing web app logo asset", logo.isFile)
+        assertTrue("Missing web source logo asset", webLogo.isFile)
+        assertArrayEquals("Android logo must be byte-identical to web logo", webLogo.readBytes(), logo.readBytes())
     }
 
     @Test
