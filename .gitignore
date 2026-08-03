@@ -42,3 +42,14 @@ next-env.d.ts
 /work/
 *.tsbuildinfo
 dev-server.*.log
+android/.gradle-dist/
+android/.gradle-home/
+android/.gradle/
+android/.tmp/
+android/sdk-local/
+android/sdk-proxy/
+android/.android/
+android/.android-user/
+android/app/build/
+android/local.properties
+android/*.keystore

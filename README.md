@@ -63,6 +63,13 @@ npm run lint
 La commande `npm test` compile l’application, exécute les tests métier et vision,
 puis vérifie le rendu HTML serveur.
 
+## Application Android native bêta
+
+Le module `android/` contient la version native installable de la bêta :
+parcours Compose, caméra CameraX/MediaPipe, OCR PP-OCRv6 ONNX hors ligne et
+repli manuel. La procédure de build et d’installation est documentée dans
+[`android/README.md`](android/README.md).
+
 ## Structure principale
 
 - `app/DictaApp.tsx` : interface et parcours d’une séance
