@@ -8,6 +8,7 @@ import com.baptiste.dicta.beta.data.INITIAL_CURSORS
 import com.baptiste.dicta.beta.data.LeaderboardEntry
 import com.baptiste.dicta.beta.data.LocalStore
 import com.baptiste.dicta.beta.data.StoredProgress
+import com.baptiste.dicta.beta.data.advanceChallengeProgress
 import com.baptiste.dicta.beta.domain.DetectionMode
 import com.baptiste.dicta.beta.domain.SchoolLevel
 import com.baptiste.dicta.beta.domain.SessionEvent
@@ -114,6 +115,12 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
             this[level] = (index + 1) % level.texts.size
         }
         progress = StoredProgress(level, index, cursors, level.recommendedLetters)
+        persistProgress()
+        state.value = stateFromProgress(progress, cameraMessage = state.value.cameraMessage)
+    }
+
+    fun advanceChallenge() {
+        progress = advanceChallengeProgress(progress)
         persistProgress()
         state.value = stateFromProgress(progress, cameraMessage = state.value.cameraMessage)
     }

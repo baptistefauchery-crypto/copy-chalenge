@@ -90,6 +90,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -305,7 +306,7 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
             Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Niveau de classe", color = Ink, fontWeight = FontWeight.ExtraBold)
-                    Pill("Challenge ${state.challengeIndex + 1} / ${state.challengeTotal}")
+                    Pill("Challenge ${state.challengeIndex + 1} / ${state.challengeTotal}", vm::advanceChallenge)
                 }
                 Box {
                     val levelColor = levelColor(state.level)
@@ -921,8 +922,14 @@ private fun Eyebrow(text: String) {
 }
 
 @Composable
-private fun Pill(text: String) {
-    Surface(shape = CircleShape, color = VioletSoft) {
+private fun Pill(text: String, onClick: (() -> Unit)? = null) {
+    val click = onClick
+    val pillModifier = click?.let {
+        Modifier
+            .clickable(role = Role.Button, onClick = it)
+            .semantics { contentDescription = "Passer au challenge suivant" }
+    } ?: Modifier
+    Surface(modifier = pillModifier, shape = CircleShape, color = VioletSoft) {
         Text(text, modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp), color = VioletDark, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
     }
 }

@@ -48,6 +48,19 @@ fun normalizeProgress(progress: StoredProgress): StoredProgress {
     )
 }
 
+fun advanceChallengeProgress(progress: StoredProgress): StoredProgress {
+    val level = progress.level
+    val nextIndex = ((progress.index + 1) % level.texts.size + level.texts.size) % level.texts.size
+    val cursors = progress.cursors.toMutableMap().apply {
+        this[level] = (nextIndex + 1) % level.texts.size
+    }
+    return progress.copy(
+        index = nextIndex,
+        cursors = cursors,
+        lettersPerFragment = level.recommendedLetters,
+    )
+}
+
 fun sortLeaderboard(entries: Iterable<LeaderboardEntry>): List<LeaderboardEntry> = entries
     .filter { it.id.isNotBlank() && it.score in 0..MAX_SCORE && it.createdAt >= 0L }
     .sortedWith(compareByDescending<LeaderboardEntry> { it.score }.thenBy { it.createdAt })

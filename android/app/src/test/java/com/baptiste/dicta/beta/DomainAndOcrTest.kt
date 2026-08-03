@@ -3,6 +3,7 @@ package com.baptiste.dicta.beta
 import com.baptiste.dicta.beta.data.INITIAL_CURSORS
 import com.baptiste.dicta.beta.data.LeaderboardEntry
 import com.baptiste.dicta.beta.data.StoredProgress
+import com.baptiste.dicta.beta.data.advanceChallengeProgress
 import com.baptiste.dicta.beta.data.decodeLeaderboard
 import com.baptiste.dicta.beta.data.encodeLeaderboard
 import com.baptiste.dicta.beta.data.normalizeProgress
@@ -166,6 +167,25 @@ class DomainAndOcrTest {
         assertEquals(listOf("best", "earlier-tie", "later-tie", "fourth", "fifth"), sorted.map { it.id })
         assertEquals(sorted, decodeLeaderboard(encodeLeaderboard(entries)))
         assertEquals(42, decodeLeaderboard("42|1234").single().score)
+    }
+
+    @Test
+    fun challengeCounterAdvancesIndexAndCursorLikeTheWeb() {
+        val first = StoredProgress(
+            level = SchoolLevel.CP,
+            index = 0,
+            cursors = INITIAL_CURSORS,
+            lettersPerFragment = 100,
+        )
+
+        val second = advanceChallengeProgress(first)
+        assertEquals(1, second.index)
+        assertEquals(2, second.cursors.getValue(SchoolLevel.CP))
+        assertEquals(SchoolLevel.CP.recommendedLetters, second.lettersPerFragment)
+
+        val wrapped = advanceChallengeProgress(second.copy(index = 2))
+        assertEquals(0, wrapped.index)
+        assertEquals(1, wrapped.cursors.getValue(SchoolLevel.CP))
     }
 
     @Test
