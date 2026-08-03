@@ -370,8 +370,30 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
                     Text("Continuer sans caméra", color = Muted, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
                 }
                 state.cameraMessage?.let { Text(it, color = Muted, fontSize = 13.sp) }
-                TextButton(onClick = { vm.checkForUpdates(force = true) }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                TextButton(
+                    onClick = { vm.checkForUpdates(force = true) },
+                    enabled = state.updateCheckState != UpdateCheckState.CHECKING,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                ) {
                     Text(if (state.updateCheckState == UpdateCheckState.CHECKING) "Recherche en cours…" else "Rechercher les mises à jour", color = Muted)
+                }
+                when {
+                    state.updateCheckState == UpdateCheckState.UP_TO_DATE && state.availableUpdate == null ->
+                        Text(
+                            "L’application est à jour (${BuildConfig.VERSION_NAME}).",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                            color = Success,
+                            fontSize = 12.sp,
+                        )
+                    state.updateCheckState == UpdateCheckState.FAILED ->
+                        Text(
+                            "Impossible de vérifier les mises à jour. Vérifie ta connexion puis réessaie.",
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                            color = Coral,
+                            fontSize = 12.sp,
+                        )
                 }
             }
         }

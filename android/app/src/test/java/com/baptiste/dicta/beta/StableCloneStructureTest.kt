@@ -77,4 +77,15 @@ class StableCloneStructureTest {
         assertFalse(viewModel.contains("startOcr"))
         assertFalse(viewModel.contains("finishWithoutOcr"))
     }
+
+    @Test
+    fun updateCheckAlwaysShowsAResult() {
+        val ui = sourceRoot.resolve("DictaApp.kt").readText()
+        val checker = sourceRoot.resolve("update/GitHubReleaseUpdateChecker.kt").readText()
+
+        assertTrue(ui.contains("L’application est à jour (\${BuildConfig.VERSION_NAME})."))
+        assertTrue(ui.contains("Impossible de vérifier les mises à jour."))
+        assertTrue(ui.contains("enabled = state.updateCheckState != UpdateCheckState.CHECKING"))
+        assertTrue(checker.contains("GitHub releases request failed with HTTP"))
+    }
 }

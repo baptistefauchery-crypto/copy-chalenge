@@ -14,7 +14,9 @@ class GitHubReleaseUpdateChecker {
             connection.readTimeout = 5_000
             connection.setRequestProperty("Accept", "application/vnd.github+json")
             connection.setRequestProperty("User-Agent", "Copy-Challenge-Android/$currentVersion")
-            if (connection.responseCode !in 200..299) return null
+            check(connection.responseCode in 200..299) {
+                "GitHub releases request failed with HTTP ${connection.responseCode}"
+            }
             parseLatestBeta(connection.inputStream.bufferedReader().use { it.readText() }, currentVersion)
         } finally { connection.disconnect() }
     }
