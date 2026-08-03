@@ -40,7 +40,7 @@ reste ignoré par Git.
 
 ## Installation de test
 
-[Télécharger la bêta Android publiée](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.3/copy-challenge-beta.apk)
+[Télécharger la bêta Android publiée](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.6/copy-challenge-beta.apk)
 
 L’application utilise le réseau uniquement pour vérifier les bêtas publiées sur GitHub. Elle contrôle les mises à jour au lancement et à chaque retour au premier plan, puis affiche un bouton de téléchargement lorsqu’une version plus récente est disponible. Les images, vidéos et textes restent sur le téléphone.
 
