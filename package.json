@@ -9,12 +9,15 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "npm run build && node --import tsx --test tests/domain.test.ts tests/vision.test.ts && node --test tests/rendered-html.test.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work"
+    "test": "npm run build && node --import tsx --test tests/domain.test.ts tests/vision.test.ts tests/ocr-compare.test.ts tests/spelling.test.ts && node --test tests/rendered-html.test.mjs",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work --ignore-pattern public/ocr/wasm"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
+    "@paddleocr/paddleocr-js": "^0.4.2",
+    "dictionary-fr": "^3.0.0",
     "next": "16.2.6",
+    "nspell": "^2.1.5",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },

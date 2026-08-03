@@ -14,7 +14,8 @@ revoir les mots ou de continuer.
 2. Lire et mémoriser le fragment affiché.
 3. Regarder le cahier pour écrire le fragment.
 4. Choisir **Revoir** ou **Continuer**.
-5. Consulter le score et le bilan en fin de séance.
+5. Photographier la feuille avec le bouton **Vérifier l'orthographe**.
+6. Comparer le texte reconnu à la référence et révéler le score.
 
 La caméra et MediaPipe distinguent localement le regard vers l’écran du regard
 vers le cahier. Un mode manuel reste disponible si la caméra n’est pas utilisée.
@@ -29,6 +30,7 @@ vers le cahier. Un mode manuel reste disponible si la caméra n’est pas utilis
 - masquage du fragment lorsque l’élève regarde son cahier
 - mode manuel de secours
 - scores et relectures conservés localement
+- OCR manuscrit local PP-OCRv6 small et dictionnaire français hors ligne
 - aucune vidéo enregistrée ou envoyée
 
 ## Installation sur Android

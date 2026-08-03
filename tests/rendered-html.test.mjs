@@ -48,11 +48,17 @@ test("ships the Android PWA and local vision assets", async () => {
     access(new URL("../public/icons/copy-challenge-option-a.png", import.meta.url)),
     access(new URL("../public/icons/copy-challenge-option-b.png", import.meta.url)),
     access(new URL("../public/models/face_landmarker.task", import.meta.url)),
+    access(new URL("../public/models/ocr/PP-OCRv6_small_det_onnx_infer.tar", import.meta.url)),
+    access(new URL("../public/models/ocr/PP-OCRv6_small_rec_onnx_infer.tar", import.meta.url)),
+    access(new URL("../public/ocr/wasm/ort-wasm-simd-threaded.wasm", import.meta.url)),
+    access(new URL("../public/dictionaries/fr/index.aff", import.meta.url)),
+    access(new URL("../public/dictionaries/fr/index.dic", import.meta.url)),
     access(new URL("../public/mediapipe/wasm/vision_wasm_internal.wasm", import.meta.url)),
   ]);
 
   const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /CACHE_VERSION = "copy-challenge-v1"/);
+  assert.match(serviceWorker, /CACHE_VERSION = "copy-challenge-v2"/);
+  assert.match(serviceWorker, /url\.pathname\.startsWith\("\/dictionaries\/"\)/);
   assert.match(serviceWorker, /icon-maskable-512\.png/);
 
   const pwaProvider = await readFile(new URL("../app/components/pwa/PwaProvider.tsx", import.meta.url), "utf8");
@@ -79,6 +85,10 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(dictaApp, /Math\.pow\(progressRatio, 1\.65\)/);
   assert.match(dictaApp, /isScoreRevealComplete && revealedScore > 0/);
   assert.match(dictaApp, /calculateScore/);
+  assert.match(dictaApp, /canRevealScore/);
+  assert.match(dictaApp, /score-gate/);
+  assert.match(dictaApp, /SpellingCheckModal/);
+  assert.match(dictaApp, /recognizeHandwrittenText/);
   assert.match(dictaApp, /LEADERBOARD_STORAGE_KEY/);
   assert.match(dictaApp, /leaderboard\.slice\(0, 5\)/);
   assert.match(dictaApp, /DICTATION_PROGRESS_STORAGE_KEY/);
@@ -107,4 +117,5 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(globals, /score-meter-fill/);
   assert.match(globals, /score-reward/);
   assert.match(globals, /score-reward-featured/);
+  assert.match(globals, /score-gate/);
 });

@@ -19,6 +19,11 @@ import {
   type AttentionDetector,
   type AttentionState,
 } from "./lib/vision";
+import SpellingCheckModal from "./components/SpellingCheckModal";
+import { compareOcrToReference } from "./lib/ocr/compare-reference";
+import { recognizeHandwrittenText, type HandwritingOcrResult } from "./lib/ocr/paddle";
+import type { OcrComparisonResult } from "./lib/ocr/types";
+import { checkFrenchSpelling, type FrenchSpellingResult } from "./lib/spelling/french";
 
 type Screen = "setup" | "placement" | "calibration-screen" | "session" | "summary";
 type SessionPhase = "memorizing" | "decision";
@@ -65,6 +70,18 @@ interface StoredDictationProgress {
   index: number;
   cursors: Record<PrimaryLevel, number>;
   lettersPerFragment: number;
+}
+
+interface PendingScore {
+  score: number;
+  entry: LeaderboardEntry;
+  previousBest: number;
+}
+
+interface SpellingVerification {
+  ocr: HandwritingOcrResult;
+  comparison: OcrComparisonResult;
+  spelling: FrenchSpellingResult;
 }
 
 function subscribeToDictationProgress(listener: () => void) {
@@ -229,11 +246,15 @@ export function DictaApp() {
   const [reviewCounts, setReviewCounts] = useState<number[]>([]);
   const [summaryScore, setSummaryScore] = useState<number | null>(null);
   const [revealedScore, setRevealedScore] = useState(0);
+  const [canRevealScore, setCanRevealScore] = useState(false);
   const [isScoreRevealComplete, setIsScoreRevealComplete] = useState(false);
   const [isRewardFeatured, setIsRewardFeatured] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(readStoredLeaderboard);
   const [currentScoreId, setCurrentScoreId] = useState<string | null>(null);
   const [isNewBestScore, setIsNewBestScore] = useState(false);
+  const [pendingScore, setPendingScore] = useState<PendingScore | null>(null);
+  const [spellingVerification, setSpellingVerification] = useState<SpellingVerification | null>(null);
+  const [isSpellingCheckOpen, setIsSpellingCheckOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const detectorRef = useRef<AttentionDetector | null>(null);
@@ -297,17 +318,19 @@ export function DictaApp() {
   }, [toast]);
 
   useEffect(() => {
-    if (screen !== "summary" || summaryScore === null) return;
+    if (screen !== "summary" || summaryScore === null || !canRevealScore) return;
 
-    setRevealedScore(0);
-    setIsScoreRevealComplete(false);
-    setIsRewardFeatured(false);
     let animationFrame = 0;
     let rewardTimer: number | undefined;
     let startedAt = 0;
 
     const revealScore = (timestamp: number) => {
       if (startedAt === 0) startedAt = timestamp;
+      if (timestamp === startedAt) {
+        setRevealedScore(0);
+        setIsScoreRevealComplete(false);
+        setIsRewardFeatured(false);
+      }
       const progress = Math.min(1, (timestamp - startedAt) / SCORE_REVEAL_DURATION_MS);
       const easedProgress = 1 - Math.pow(1 - progress, 3);
       setRevealedScore(Math.round(summaryScore * easedProgress));
@@ -327,7 +350,7 @@ export function DictaApp() {
       window.cancelAnimationFrame(animationFrame);
       if (rewardTimer !== undefined) window.clearTimeout(rewardTimer);
     };
-  }, [screen, summaryScore]);
+  }, [canRevealScore, screen, summaryScore]);
 
   const stopCamera = useCallback(() => {
     detectorRef.current?.stop();
@@ -541,15 +564,42 @@ export function DictaApp() {
       createdAt: Date.now(),
     };
     const previousBest = leaderboard[0]?.score ?? 0;
-    const nextLeaderboard = sortLeaderboard([...leaderboard, entry]);
-    setLeaderboard(nextLeaderboard);
-    persistLeaderboard(nextLeaderboard);
+    setPendingScore({ score, entry, previousBest });
     setSummaryScore(score);
-    setCurrentScoreId(entry.id);
-    setIsNewBestScore(score > previousBest);
+    setCanRevealScore(false);
+    setSpellingVerification(null);
+    setIsSpellingCheckOpen(false);
+    setCurrentScoreId(null);
+    setIsNewBestScore(false);
+    setRevealedScore(0);
+    setIsScoreRevealComplete(false);
+    setIsRewardFeatured(false);
     sessionStartedAtRef.current = null;
     stopCamera();
     setScreen("summary");
+  };
+
+  const handleSpellingCapture = async (image: Blob) => {
+    if (!pendingScore) throw new Error("Aucun score en attente de vérification.");
+    const ocr = await recognizeHandwrittenText(image);
+    const comparison = compareOcrToReference(text, {
+      text: ocr.text,
+      confidence: ocr.confidence,
+      tokens: ocr.tokens,
+    });
+    const spelling = await checkFrenchSpelling(ocr.text);
+    setSpellingVerification({ ocr, comparison, spelling });
+    setIsSpellingCheckOpen(false);
+  };
+
+  const revealScore = () => {
+    if (!pendingScore || canRevealScore) return;
+    const nextLeaderboard = sortLeaderboard([...leaderboard, pendingScore.entry]);
+    setLeaderboard(nextLeaderboard);
+    persistLeaderboard(nextLeaderboard);
+    setCurrentScoreId(pendingScore.entry.id);
+    setIsNewBestScore(pendingScore.entry.score > pendingScore.previousBest);
+    setCanRevealScore(true);
   };
 
   const next = () => {
@@ -572,10 +622,14 @@ export function DictaApp() {
     setReviewCounts([]);
     setSummaryScore(null);
     setRevealedScore(0);
+    setCanRevealScore(false);
     setIsScoreRevealComplete(false);
     setIsRewardFeatured(false);
     setCurrentScoreId(null);
     setIsNewBestScore(false);
+    setPendingScore(null);
+    setSpellingVerification(null);
+    setIsSpellingCheckOpen(false);
     calibrationReadConfirmedRef.current = false;
     sessionStartedAtRef.current = null;
   };
@@ -782,7 +836,45 @@ export function DictaApp() {
             </div>
           )}
           <div className="hero"><h1>Bravo, c’est terminé !</h1></div>
-          <div className="card stage-card summary-card">
+          <div className="card stage-card summary-card" data-score-revealed={canRevealScore ? "true" : "false"}>
+            {!canRevealScore && (
+              <div className="score-gate" aria-live="polite">
+                <div className="eyebrow">Dernière vérification</div>
+                <h2>Vérifie l&apos;orthographe de ta copie</h2>
+                <p className="score-gate-help">Photographie ta feuille pour comparer ton écriture au texte de référence avant d&apos;afficher ton score.</p>
+                {spellingVerification && (
+                  <div className="spelling-result">
+                    <div className="spelling-result-status" data-ok={spellingVerification.comparison.matches && spellingVerification.spelling.issues.length === 0 ? "true" : "false"}>
+                      <strong>{spellingVerification.comparison.matches ? "Le texte correspond à la référence." : "Des différences ont été repérées."}</strong>
+                      <span>
+                        {spellingVerification.spelling.issues.length === 0
+                          ? "Aucune faute détectée par le dictionnaire français."
+                          : spellingVerification.spelling.issues.length + " mot" + (spellingVerification.spelling.issues.length > 1 ? "s" : "") + " à vérifier."}
+                      </span>
+                      <span>Confiance OCR : {Math.round(spellingVerification.comparison.confidence * 100)} %</span>
+                    </div>
+                    <p className="spelling-result-text"><strong>Texte reconnu :</strong> {spellingVerification.ocr.text}</p>
+                    {spellingVerification.comparison.wordDiffs.some((diff) => diff.kind !== "equal") && (
+                      <ul className="spelling-diff-list">
+                        {spellingVerification.comparison.wordDiffs.filter((diff) => diff.kind !== "equal").slice(0, 4).map((diff, index) => (
+                          <li key={diff.kind + "-" + index}>
+                            <span>{diff.reference || "mot absent"}</span>
+                            <strong aria-hidden="true">→</strong>
+                            <span>{diff.recognized || "mot manquant"}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+                <button className="secondary-button spelling-gate-button" type="button" onClick={() => setIsSpellingCheckOpen(true)}>
+                  {spellingVerification ? "Refaire la vérification" : "Vérifier l&apos;orthographe"}
+                </button>
+                {spellingVerification && (
+                  <button className="primary-button" type="button" onClick={revealScore}>Révéler le score</button>
+                )}
+              </div>
+            )}
             <div className="score-reveal" aria-label={`Score ${revealedScore} sur ${MAX_SCORE}`}>
               <div className={`summary-score ${isNewBestScore ? "summary-score-record" : ""}`} aria-live="polite">{revealedScore}</div>
               <div className="muted">{isNewBestScore ? "Nouveau record !" : "score sur 100"}</div>
@@ -838,6 +930,14 @@ export function DictaApp() {
             <button className="primary-button" onClick={prepareNextDictation}>Préparer le challenge suivant</button>
           </div>
         </section>
+      )}
+
+      {isSpellingCheckOpen && pendingScore && (
+        <SpellingCheckModal
+          onCapture={handleSpellingCapture}
+          onClose={() => setIsSpellingCheckOpen(false)}
+          onRetry={() => setSpellingVerification(null)}
+        />
       )}
 
       {toast && <div className="toast" role="status">{toast}</div>}
