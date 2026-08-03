@@ -1,5 +1,6 @@
 package com.baptiste.dicta.beta.vision
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -59,5 +60,18 @@ class AttentionVisionTest {
         assertTrue(shouldAnalyzeFrame(null, 1_000L))
         assertFalse(shouldAnalyzeFrame(1_000L, 1_099L))
         assertTrue(shouldAnalyzeFrame(1_000L, 1_100L))
+    }
+
+    @Test
+    fun yuvConversionSkipsRowAndPixelPadding() {
+        val result = yuv420ToNv21(
+            width = 4,
+            height = 2,
+            yPlane = YuvPlane(byteArrayOf(10, 11, 12, 13, 99, 99, 20, 21, 22, 23, 88, 88), 6, 1),
+            uPlane = YuvPlane(byteArrayOf(1, 99, 2, 99), 4, 2),
+            vPlane = YuvPlane(byteArrayOf(3, 99, 4, 99), 4, 2),
+        )
+
+        assertArrayEquals(byteArrayOf(10, 11, 12, 13, 20, 21, 22, 23, 3, 1, 4, 2), result)
     }
 }

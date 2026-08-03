@@ -1,10 +1,17 @@
 package com.baptiste.dicta.beta.update
 
 import org.json.JSONArray
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
 data class AppUpdate(val versionName: String, val downloadUrl: String, val releaseUrl: String)
+
+class GitHubReleaseHttpException(
+    val statusCode: Int,
+    val rateLimitRemaining: Long?,
+    val rateLimitResetEpochSeconds: Long?,
+) : IOException("GitHub releases request failed with HTTP $statusCode")
 
 class GitHubReleaseUpdateChecker {
     fun check(currentVersion: String): AppUpdate? {
@@ -14,8 +21,13 @@ class GitHubReleaseUpdateChecker {
             connection.readTimeout = 5_000
             connection.setRequestProperty("Accept", "application/vnd.github+json")
             connection.setRequestProperty("User-Agent", "Copy-Challenge-Android/$currentVersion")
-            check(connection.responseCode in 200..299) {
-                "GitHub releases request failed with HTTP ${connection.responseCode}"
+            val responseCode = connection.responseCode
+            if (responseCode !in 200..299) {
+                throw GitHubReleaseHttpException(
+                    statusCode = responseCode,
+                    rateLimitRemaining = connection.getHeaderField("X-RateLimit-Remaining")?.toLongOrNull(),
+                    rateLimitResetEpochSeconds = connection.getHeaderField("X-RateLimit-Reset")?.toLongOrNull(),
+                )
             }
             parseLatestBeta(connection.inputStream.bufferedReader().use { it.readText() }, currentVersion)
         } finally { connection.disconnect() }
@@ -23,6 +35,15 @@ class GitHubReleaseUpdateChecker {
 
     companion object {
         private const val RELEASES_API = "https://api.github.com/repos/baptistefauchery-crypto/copy-chalenge/releases?per_page=10"
+
+        fun userMessageFor(error: Throwable): String = when {
+            error is GitHubReleaseHttpException && error.statusCode == 403 && error.rateLimitRemaining == 0L ->
+                "GitHub limite temporairement les vérifications (quota de l’API atteint). Réessaie dans environ une heure."
+            error is GitHubReleaseHttpException ->
+                "GitHub a refusé la vérification des mises à jour (HTTP ${error.statusCode}). Réessaie plus tard."
+            else ->
+                "Impossible de joindre GitHub pour vérifier les mises à jour. Vérifie ta connexion puis réessaie."
+        }
 
         fun parseLatestBeta(json: String, currentVersion: String): AppUpdate? {
             val releases = JSONArray(json)

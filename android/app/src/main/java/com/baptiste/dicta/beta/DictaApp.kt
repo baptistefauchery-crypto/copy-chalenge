@@ -389,7 +389,7 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
                         )
                     state.updateCheckState == UpdateCheckState.FAILED ->
                         Text(
-                            "Impossible de vérifier les mises à jour. Vérifie ta connexion puis réessaie.",
+                            state.updateCheckMessage ?: "Impossible de joindre GitHub pour vérifier les mises à jour. Vérifie ta connexion puis réessaie.",
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center,
                             color = Coral,

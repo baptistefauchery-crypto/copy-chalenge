@@ -21,4 +21,20 @@ class GitHubReleaseUpdateCheckerTest {
     @Test fun comparesBetaVersionsNumerically() {
         assertTrue(GitHubReleaseUpdateChecker.compareVersions("0.1.0-beta.10", "0.1.0-beta.2") > 0)
     }
+
+    @Test fun explainsGitHubRateLimit() {
+        val message = GitHubReleaseUpdateChecker.userMessageFor(
+            GitHubReleaseHttpException(statusCode = 403, rateLimitRemaining = 0, rateLimitResetEpochSeconds = null),
+        )
+        assertTrue(message.contains("GitHub"))
+        assertTrue(message.contains("quota"))
+    }
+
+    @Test fun explainsOtherGitHubHttpErrors() {
+        val message = GitHubReleaseUpdateChecker.userMessageFor(
+            GitHubReleaseHttpException(statusCode = 500, rateLimitRemaining = null, rateLimitResetEpochSeconds = null),
+        )
+        assertTrue(message.contains("GitHub"))
+        assertTrue(message.contains("HTTP 500"))
+    }
 }

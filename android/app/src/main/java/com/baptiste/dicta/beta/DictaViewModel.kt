@@ -54,6 +54,7 @@ data class DictaUiState(
     val cameraMessage: String? = null,
     val availableUpdate: AppUpdate? = null,
     val updateCheckState: UpdateCheckState = UpdateCheckState.IDLE,
+    val updateCheckMessage: String? = null,
     val error: String? = null,
 )
 
@@ -74,6 +75,7 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
     private var lastUpdateCheckAt = 0L
     private var latestUpdate: AppUpdate? = null
     private var latestUpdateCheckState = UpdateCheckState.IDLE
+    private var latestUpdateCheckMessage: String? = null
 
     private val state = MutableStateFlow(stateFromProgress(progress))
     val uiState: StateFlow<DictaUiState> = state.asStateFlow()
@@ -94,17 +96,30 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
         if (state.value.updateCheckState == UpdateCheckState.CHECKING) return
         lastUpdateCheckAt = now
         latestUpdateCheckState = UpdateCheckState.CHECKING
-        state.value = state.value.copy(updateCheckState = latestUpdateCheckState)
+        latestUpdateCheckMessage = null
+        state.value = state.value.copy(
+            updateCheckState = latestUpdateCheckState,
+            updateCheckMessage = null,
+        )
         viewModelScope.launch(Dispatchers.IO) {
             runCatching { updateChecker.check(BuildConfig.VERSION_NAME) }
                 .onSuccess { update ->
                     latestUpdate = update
                     latestUpdateCheckState = UpdateCheckState.UP_TO_DATE
-                    state.value = state.value.copy(availableUpdate = latestUpdate, updateCheckState = latestUpdateCheckState)
+                    latestUpdateCheckMessage = null
+                    state.value = state.value.copy(
+                        availableUpdate = latestUpdate,
+                        updateCheckState = latestUpdateCheckState,
+                        updateCheckMessage = null,
+                    )
                 }
-                .onFailure {
+                .onFailure { error ->
                     latestUpdateCheckState = UpdateCheckState.FAILED
-                    state.value = state.value.copy(updateCheckState = latestUpdateCheckState)
+                    latestUpdateCheckMessage = GitHubReleaseUpdateChecker.userMessageFor(error)
+                    state.value = state.value.copy(
+                        updateCheckState = latestUpdateCheckState,
+                        updateCheckMessage = latestUpdateCheckMessage,
+                    )
                 }
         }
     }
@@ -396,6 +411,7 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
             cameraMessage = cameraMessage,
             availableUpdate = latestUpdate,
             updateCheckState = latestUpdateCheckState,
+            updateCheckMessage = latestUpdateCheckMessage,
         )
     }
 

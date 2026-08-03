@@ -84,7 +84,7 @@ class StableCloneStructureTest {
         val checker = sourceRoot.resolve("update/GitHubReleaseUpdateChecker.kt").readText()
 
         assertTrue(ui.contains("L’application est à jour (\${BuildConfig.VERSION_NAME})."))
-        assertTrue(ui.contains("Impossible de vérifier les mises à jour."))
+        assertTrue(ui.contains("state.updateCheckMessage ?: \"Impossible de joindre GitHub"))
         assertTrue(ui.contains("enabled = state.updateCheckState != UpdateCheckState.CHECKING"))
         assertTrue(checker.contains("GitHub releases request failed with HTTP"))
     }

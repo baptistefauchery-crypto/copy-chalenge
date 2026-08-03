@@ -25,8 +25,9 @@ class CameraCoordinator(
         controller.cameraSelector = if (mode == CameraMode.FRONT) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
         controller.setEnabledUseCases(LifecycleCameraController.IMAGE_CAPTURE or LifecycleCameraController.IMAGE_ANALYSIS)
         if (mode == CameraMode.FRONT) {
-            analyzer?.close()
-            analyzer = MediaPipeAttentionAnalyzer(previewView.context, onReading).also { it.restoreCalibration(calibration) }
+            if (analyzer == null) {
+                analyzer = MediaPipeAttentionAnalyzer(previewView.context, onReading).also { it.restoreCalibration(calibration) }
+            }
             controller.setImageAnalysisAnalyzer(executor, analyzer!!)
         } else {
             analyzer?.close()
@@ -80,12 +81,12 @@ class CameraCoordinator(
     }
 
     fun detach() {
-        analyzer?.close()
-        analyzer = null
         controller.unbind()
     }
 
     override fun close() {
+        analyzer?.close()
+        analyzer = null
         detach()
     }
 }
