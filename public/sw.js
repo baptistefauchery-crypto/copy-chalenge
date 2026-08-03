@@ -1,5 +1,5 @@
 /* Copy Challenge service worker — bump this value whenever the offline shell changes. */
-const CACHE_VERSION = "copy-challenge-v2";
+const CACHE_VERSION = "copy-challenge-v4";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [

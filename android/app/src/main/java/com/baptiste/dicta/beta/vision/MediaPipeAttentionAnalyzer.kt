@@ -10,22 +10,28 @@ import android.os.SystemClock
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 class MediaPipeAttentionAnalyzer(
     context: Context,
     private val onReading: (AttentionReading) -> Unit,
 ) : ImageAnalysis.Analyzer, AutoCloseable {
     private val running = AtomicBoolean(true)
+    private val inferenceInFlight = AtomicBoolean(false)
+    private val pendingImage = AtomicReference<MPImage?>(null)
     private val stabilizer = AttentionStabilizer()
     private val recent = ArrayDeque<AttentionFeatures>()
     private val samples = mutableListOf<AttentionFeatures>()
     private var calibration: AttentionCalibration? = null
     private var collecting = false
+    private var lastAnalysisAt: Long? = null
     private val landmarker: FaceLandmarker
 
     init {
@@ -37,8 +43,19 @@ class MediaPipeAttentionAnalyzer(
             .setMinFaceDetectionConfidence(0.5f)
             .setMinFacePresenceConfidence(0.5f)
             .setMinTrackingConfidence(0.5f)
-            .setResultListener { result, _ -> onResult(result) }
-            .setErrorListener { onReading(AttentionReading(AttentionState.NOTEBOOK, 1.0, false, SystemClock.uptimeMillis())) }
+            .setResultListener { result, inputImage ->
+                try {
+                    onResult(result)
+                } finally {
+                    if (pendingImage.compareAndSet(inputImage, null)) inputImage.close()
+                    inferenceInFlight.set(false)
+                }
+            }
+            .setErrorListener {
+                pendingImage.getAndSet(null)?.close()
+                inferenceInFlight.set(false)
+                onReading(AttentionReading(AttentionState.NOTEBOOK, 1.0, false, SystemClock.uptimeMillis()))
+            }
             .build()
         landmarker = FaceLandmarker.createFromOptions(context, options)
     }
@@ -70,13 +87,29 @@ class MediaPipeAttentionAnalyzer(
 
     override fun analyze(image: ImageProxy) {
         if (!running.get()) { image.close(); return }
+        val timestamp = SystemClock.uptimeMillis()
+        if (!shouldAnalyzeFrame(lastAnalysisAt, timestamp) || !inferenceInFlight.compareAndSet(false, true)) {
+            image.close()
+            return
+        }
+        lastAnalysisAt = timestamp
+        var bitmap: Bitmap? = null
+        var mpImage: MPImage? = null
         try {
-            val bitmap = image.toBitmap()
-            val mpImage = BitmapImageBuilder(bitmap).build()
-            landmarker.detectAsync(mpImage, SystemClock.uptimeMillis())
-            // LIVE_STREAM consumes the image asynchronously. Do not recycle the
-            // Bitmap here; MediaPipe may still be reading it on its worker thread.
+            bitmap = image.toBitmap()
+            mpImage = BitmapImageBuilder(bitmap).build()
+            bitmap = null // MPImage owns and recycles the bitmap from this point.
+            pendingImage.set(mpImage)
+            val processingOptions = ImageProcessingOptions.builder()
+                .setRotationDegrees(image.imageInfo.rotationDegrees)
+                .build()
+            landmarker.detectAsync(mpImage, processingOptions, timestamp)
+            // The result callback closes the MPImage after MediaPipe is done;
+            // closing it also recycles the BitmapImageBuilder bitmap.
         } catch (_: Throwable) {
+            if (mpImage != null && pendingImage.compareAndSet(mpImage, null)) mpImage.close()
+            else bitmap?.recycle()
+            inferenceInFlight.set(false)
             onReading(AttentionReading(stabilizer.loseFace(), 1.0, false, SystemClock.uptimeMillis()))
         } finally {
             image.close()
@@ -107,9 +140,12 @@ class MediaPipeAttentionAnalyzer(
     override fun close() {
         running.set(false)
         landmarker.close()
+        pendingImage.getAndSet(null)?.close()
+        inferenceInFlight.set(false)
     }
 }
 
+@androidx.annotation.OptIn(markerClass = [androidx.camera.core.ExperimentalGetImage::class])
 internal fun ImageProxy.toBitmap(): Bitmap {
     val image = image ?: error("Camera image unavailable")
     if (format == ImageFormat.JPEG) {

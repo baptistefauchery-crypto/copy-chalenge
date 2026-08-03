@@ -73,8 +73,8 @@ fun classifyFeatures(sample: AttentionFeatures, calibration: AttentionCalibratio
 }
 
 class AttentionStabilizer(
-    private val enterNotebookMs: Long = 300,
-    private val returnScreenMs: Long = 500,
+    private val enterNotebookMs: Long = 220,
+    private val returnScreenMs: Long = 700,
     private val minimumConfidence: Double = 0.18,
 ) {
     private var stable = AttentionState.UNKNOWN
@@ -93,4 +93,9 @@ class AttentionStabilizer(
 
     fun loseFace(): AttentionState { stable = AttentionState.NOTEBOOK; candidate = AttentionState.UNKNOWN; return stable }
     fun reset() { stable = AttentionState.UNKNOWN; candidate = AttentionState.UNKNOWN; candidateSince = 0L }
+}
+
+internal fun shouldAnalyzeFrame(lastAnalysisAt: Long?, timestamp: Long, minimumIntervalMs: Long = 100L): Boolean {
+    require(minimumIntervalMs > 0L) { "minimumIntervalMs must be positive" }
+    return lastAnalysisAt == null || timestamp - lastAnalysisAt >= minimumIntervalMs
 }

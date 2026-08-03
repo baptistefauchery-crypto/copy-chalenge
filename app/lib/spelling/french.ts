@@ -13,6 +13,11 @@ export interface FrenchSpellingResult {
   dictionary: "fr";
 }
 
+export interface FrenchSpellingOptions {
+  /** Words from the reference text that are valid even when absent from the dictionary. */
+  ignoredWords?: string[];
+}
+
 interface SpellChecker {
   correct(word: string): boolean;
   suggest(word: string): string[];
@@ -61,12 +66,25 @@ function getWordParts(word: string) {
   return parts.length > 1 ? parts.slice(1) : parts;
 }
 
-export async function checkFrenchSpelling(text: string): Promise<FrenchSpellingResult> {
+function wordKey(word: string): string {
+  return word.normalize("NFC").toLocaleLowerCase("fr-FR");
+}
+
+export async function checkFrenchSpelling(
+  text: string,
+  options: FrenchSpellingOptions = {},
+): Promise<FrenchSpellingResult> {
   const checker = await getSpellChecker();
   const words = [...text.matchAll(WORD_PATTERN)].map((match) => match[0]);
+  const ignoredWords = new Set(
+    (options.ignoredWords ?? []).flatMap((ignoredText) =>
+      [...ignoredText.matchAll(WORD_PATTERN)].map((match) => wordKey(match[0])),
+    ),
+  );
   const issues: SpellingIssue[] = [];
 
   words.forEach((word, tokenIndex) => {
+    if (ignoredWords.has(wordKey(word))) return;
     const incorrectPart = getWordParts(word).find((part) => !checker.correct(part));
     if (!incorrectPart) return;
     issues.push({

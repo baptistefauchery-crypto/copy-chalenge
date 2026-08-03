@@ -60,13 +60,24 @@ test("distinguishes missing and added words", () => {
 
 test("uses token confidence when no overall OCR confidence is supplied", () => {
   const result = compareOcrToReference("Bonjour monde", {
-    text: "Bonjour mOnde",
+    text: "Bonjour mOndz",
     tokens: [
       { text: "Bonjour", confidence: 0.96 },
-      { text: "mOnde", confidence: 0.44 },
+      { text: "mOndz", confidence: 0.44 },
     ],
   });
 
   assert.equal(result.confidence, 0.7);
   assert.equal(result.status, "uncertain");
+});
+
+test("splits line-level OCR tokens and ignores case differences", () => {
+  const result = compareOcrToReference("Lina a un vélo", {
+    text: "lina a un vélo",
+    confidence: 0.91,
+    tokens: [{ text: "lina a un vélo", confidence: 0.91 }],
+  });
+
+  assert.equal(result.matches, true);
+  assert.equal(result.wordDiffs.filter((diff) => diff.kind !== "equal").length, 0);
 });

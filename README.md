@@ -63,11 +63,12 @@ npm run lint
 La commande `npm test` compile l’application, exécute les tests métier et vision,
 puis vérifie le rendu HTML serveur.
 
-## Application Android native bêta
+## Application Android native
 
-Le module `android/` contient la version native installable de la bêta :
-parcours Compose, caméra CameraX/MediaPipe, OCR PP-OCRv6 ONNX hors ligne et
-repli manuel. La procédure de build et d’installation est documentée dans
+Le module `android/` contient un clone natif installable du site web stable :
+mêmes challenges, parcours, score, récompenses et classement, avec caméra
+CameraX/MediaPipe, fonctionnement hors ligne et repli manuel. La procédure de
+build et d’installation est documentée dans
 [`android/README.md`](android/README.md).
 
 ## Structure principale

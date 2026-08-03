@@ -1,0 +1,55 @@
+package com.baptiste.dicta.beta
+
+import java.io.File
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** Guards the visible stable-v52 contract against accidental beta/OCR regressions. */
+class StableCloneStructureTest {
+    private val sourceRoot = File("src/main/java/com/baptiste/dicta/beta")
+
+    @Test
+    fun composeFlowKeepsStableScreensCopyAndRewardTiming() {
+        val ui = sourceRoot.resolve("DictaApp.kt").readText()
+
+        listOf(
+            "Copy Challenge",
+            "Lancer un challenge.",
+            "Continuer sans caméra",
+            "Place ton visage dans le repère.",
+            "Lis le challenge",
+            "J’ai lu",
+            "Mémorise ces mots, puis écris-les sur ton cahier.",
+            "Revoir les mots ?",
+            "Bravo, c’est terminé !",
+            "Préparer le challenge suivant",
+            "SCORE_REVEAL_DURATION_MS = 1_800",
+            "REWARD_FEATURE_DURATION_MS = 2_400L",
+            "if (score > 80) playScoreFanfare()",
+        ).forEach { expected -> assertTrue("Missing stable UI contract: $expected", ui.contains(expected)) }
+
+        assertFalse(ui.contains("OcrScreen"))
+        assertFalse(ui.contains("Photographiez votre feuille"))
+        assertFalse(ui.contains("bêta copy chalenge"))
+    }
+
+    @Test
+    fun viewModelUsesWorkingCalibrationDirectScoreAndFailClosedTiming() {
+        val viewModel = sourceRoot.resolve("DictaViewModel.kt").readText()
+
+        listOf(
+            "SessionEvent.BeginCalibration",
+            "SessionEvent.CalibrationCompleted",
+            "SessionEvent.Start(now)",
+            "calculateScore(session.exercise.sourceText, elapsed, session.totalReviews)",
+            "now - lastCameraReadingAt > 1_200L",
+            "autoHideBlockedUntil = now + 2_000L",
+            "!reading.faceDetected || reading.state == AttentionState.NOTEBOOK",
+        ).forEach { expected -> assertTrue("Missing stable flow contract: $expected", viewModel.contains(expected)) }
+
+        assertFalse(viewModel.contains("OnnxOcrEngine"))
+        assertFalse(viewModel.contains("startOcr"))
+        assertFalse(viewModel.contains("finishWithoutOcr"))
+    }
+}

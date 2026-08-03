@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="dicta_background">#F7F4ED</color>
-    <color name="dicta_ink">#163A32</color>
+    <!-- Palette du site stable Copy Challenge. -->
+    <color name="dicta_paper">#F2C8A7</color>
+    <color name="dicta_paper_strong">#FFFAF2</color>
+    <color name="dicta_ink">#25233B</color>
+    <color name="dicta_muted">#716D7E</color>
+    <color name="dicta_violet">#6654D9</color>
+    <color name="dicta_violet_dark">#4E3EB2</color>
+    <color name="dicta_violet_soft">#E9E4FF</color>
+    <color name="dicta_coral">#EF765F</color>
+    <color name="dicta_mint">#CFE8DC</color>
+    <color name="dicta_success">#58A37C</color>
+    <color name="dicta_error">#94412F</color>
+    <color name="dicta_white">#FFFFFF</color>
 </resources>
