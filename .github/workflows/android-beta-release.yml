@@ -22,7 +22,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check whether trusted signing is configured
+        id: signing_key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.DICTA_BETA_KEYSTORE_BASE64 }}
+        run: |
+          if [[ -z "${KEYSTORE_BASE64:-}" ]]; then
+            echo "::warning::Missing DICTA_BETA_KEYSTORE_BASE64. The optional release workflow is skipped; publish only after the local signing check succeeds."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up JDK 11
+        if: steps.signing_key.outputs.available == 'true'
         uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -30,27 +44,19 @@ jobs:
           cache: gradle
 
       - name: Install the pinned Android SDK components
+        if: steps.signing_key.outputs.available == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager "platforms;android-33" "build-tools;30.0.3"
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-33" "build-tools;30.0.3"
 
       - name: Verify tag and Gradle versions
+        if: steps.signing_key.outputs.available == 'true'
         shell: pwsh
         run: ./android/scripts/verify-beta-version.ps1 -Tag "${{ github.ref_name }}" -CheckGitHistory
 
-      - name: Require the optional signing-key secret
-        shell: bash
-        env:
-          KEYSTORE_BASE64: ${{ secrets.DICTA_BETA_KEYSTORE_BASE64 }}
-        run: |
-          set -euo pipefail
-          if [[ -z "${KEYSTORE_BASE64:-}" ]]; then
-            echo "::error::Missing DICTA_BETA_KEYSTORE_BASE64. Configure it from the trusted local beta-debug.keystore before pushing a release tag."
-            exit 1
-          fi
-
       - name: Reconstruct the exact beta keystore
+        if: steps.signing_key.outputs.available == 'true'
         shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.DICTA_BETA_KEYSTORE_BASE64 }}
@@ -66,6 +72,7 @@ jobs:
           fi
 
       - name: Test and build the signed beta APK
+        if: steps.signing_key.outputs.available == 'true'
         working-directory: android
         shell: bash
         run: |
@@ -74,14 +81,17 @@ jobs:
           ./gradlew --no-daemon testBetaDebugUnitTest assembleBetaDebug
 
       - name: Verify the APK signing certificate
+        if: steps.signing_key.outputs.available == 'true'
         shell: pwsh
         run: ./android/scripts/verify-android-signing.ps1
 
       - name: Prepare the release asset
+        if: steps.signing_key.outputs.available == 'true'
         shell: bash
         run: cp android/app/build/outputs/apk/beta/debug/app-beta-debug.apk "$RUNNER_TEMP/copy-challenge-beta.apk"
 
       - name: Publish the GitHub prerelease
+        if: steps.signing_key.outputs.available == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

@@ -72,10 +72,10 @@ vérification échoue.
 ### Publication optionnelle par GitHub Actions
 
 Le workflow `.github/workflows/android-beta-release.yml` est déclenché par les
-tags `v*-beta.*`. Il vérifie la version, reconstruit exactement
+tags `v*-beta.*`. Sans secret configuré, il se termine sans publier et affiche
+seulement un avertissement. Avec le secret, il vérifie la version, reconstruit exactement
 `android/beta-debug.keystore`, teste l’application, construit l’APK, vérifie son
-certificat puis crée une prerelease GitHub. Il échoue explicitement avant le
-build si le secret n’est pas configuré ; il ne génère jamais une autre clé.
+certificat puis crée une prerelease GitHub. Il ne génère jamais une autre clé.
 
 Le seul secret Actions requis est `DICTA_BETA_KEYSTORE_BASE64`. Sa création doit
 être faite manuellement depuis une machine de confiance par un administrateur du
