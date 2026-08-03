@@ -65,6 +65,12 @@ puis vérifie le rendu HTML serveur.
 
 ## Application Android native
 
+### Installer la bêta Android
+
+[Télécharger directement la dernière bêta Android (APK)](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.2/copy-challenge-beta.apk)
+
+Android peut demander d’autoriser l’installation depuis le navigateur. La bêta vérifie ensuite automatiquement les nouvelles versions au lancement et au retour dans l’application, et propose leur téléchargement.
+
 Le module `android/` contient un clone natif installable du site web stable :
 mêmes challenges, parcours, score, récompenses et classement, avec caméra
 CameraX/MediaPipe, fonctionnement hors ligne et repli manuel. La procédure de

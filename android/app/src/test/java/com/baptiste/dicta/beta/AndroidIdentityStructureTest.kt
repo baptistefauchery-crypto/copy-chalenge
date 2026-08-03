@@ -9,14 +9,14 @@ class AndroidIdentityStructureTest {
     private val mainSource = File("src/main")
 
     @Test
-    fun manifestKeepsStableIdentityPortraitAndOfflineContract() {
+    fun manifestKeepsStableIdentityPortraitAndUpdateNetworkContract() {
         val manifest = mainSource.resolve("AndroidManifest.xml").readText()
 
         assertTrue(manifest.contains("android:label=\"Copy Challenge\""))
         assertTrue(manifest.contains("android:icon=\"@drawable/ic_copy_challenge\""))
         assertTrue(manifest.contains("android:screenOrientation=\"portrait\""))
         assertTrue(manifest.contains("android.permission.CAMERA"))
-        assertTrue(manifest.contains("android.permission.INTERNET\" tools:node=\"remove\""))
+        assertTrue(manifest.contains("android.permission.INTERNET\" />"))
         assertTrue(manifest.contains("android.permission.ACCESS_NETWORK_STATE\" tools:node=\"remove\""))
         assertFalse(manifest.contains("android:label=\"bêta copy chalenge\""))
     }

@@ -2,6 +2,8 @@ package com.baptiste.dicta.beta
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.Intent
+import android.net.Uri
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -93,6 +95,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.baptiste.dicta.beta.data.LeaderboardEntry
 import com.baptiste.dicta.beta.domain.Badge
 import com.baptiste.dicta.beta.domain.DetectionMode
@@ -130,6 +134,7 @@ private const val REWARD_FEATURE_DURATION_MS = 2_400L
 fun DictaApp(vm: DictaViewModel = viewModel()) {
     val state by vm.uiState.collectAsState()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val executor = remember { Executors.newSingleThreadExecutor() }
     val coordinator = remember(vm) { CameraCoordinator(context, executor, vm::onAttention) }
 
@@ -138,6 +143,13 @@ fun DictaApp(vm: DictaViewModel = viewModel()) {
             coordinator.close()
             executor.shutdown()
         }
+    }
+    DisposableEffect(lifecycleOwner, vm) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) vm.checkForUpdates()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Box(
@@ -266,6 +278,7 @@ private fun AppLogo() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
+    val context = LocalContext.current
     var helpOpen by rememberSaveable { mutableStateOf(false) }
     var levelMenuOpen by remember { mutableStateOf(false) }
     AppColumn(
@@ -274,6 +287,17 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
         onInfo = { helpOpen = !helpOpen },
         scroll = true,
     ) {
+        state.availableUpdate?.let { update ->
+            Card(shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = Mint.copy(alpha = .96f))) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Mise à jour ${update.versionName} disponible", color = Ink, fontWeight = FontWeight.Black)
+                    Text("Une nouvelle bêta de Copy Challenge est prête à installer.", color = Muted, fontSize = 13.sp)
+                    Button(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.downloadUrl))) }) {
+                        Text("Télécharger la mise à jour")
+                    }
+                }
+            }
+        }
         if (helpOpen) HelpPanel { helpOpen = false }
         HomeIllustration()
         Card(
@@ -349,6 +373,9 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
                     Text("Continuer sans caméra", color = Muted, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
                 }
                 state.cameraMessage?.let { Text(it, color = Muted, fontSize = 13.sp) }
+                TextButton(onClick = { vm.checkForUpdates(force = true) }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    Text(if (state.updateCheckState == UpdateCheckState.CHECKING) "Recherche en cours…" else "Rechercher les mises à jour", color = Muted)
+                }
             }
         }
         Row(Modifier.padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(11.dp)) {

@@ -19,6 +19,9 @@ import com.baptiste.dicta.beta.domain.createSession
 import com.baptiste.dicta.beta.domain.reduceSession
 import com.baptiste.dicta.beta.vision.AttentionReading
 import com.baptiste.dicta.beta.vision.AttentionState
+import com.baptiste.dicta.beta.update.AppUpdate
+import com.baptiste.dicta.beta.update.GitHubReleaseUpdateChecker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +31,7 @@ import kotlinx.coroutines.launch
 enum class AppScreen { SETUP, PLACEMENT, CALIBRATION, SESSION, SUMMARY, ERROR }
 
 enum class CalibrationStage { PREPARING, MEASURING, READY, FAILED }
+enum class UpdateCheckState { IDLE, CHECKING, UP_TO_DATE, FAILED }
 
 data class DictaUiState(
     val screen: AppScreen = AppScreen.SETUP,
@@ -47,6 +51,8 @@ data class DictaUiState(
     val isNewBestScore: Boolean = false,
     val leaderboard: List<LeaderboardEntry> = emptyList(),
     val cameraMessage: String? = null,
+    val availableUpdate: AppUpdate? = null,
+    val updateCheckState: UpdateCheckState = UpdateCheckState.IDLE,
     val error: String? = null,
 )
 
@@ -63,16 +69,42 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
         }
     private var autoHideBlockedUntil = 0L
     private var lastCameraReadingAt = 0L
+    private val updateChecker = GitHubReleaseUpdateChecker()
+    private var lastUpdateCheckAt = 0L
+    private var latestUpdate: AppUpdate? = null
+    private var latestUpdateCheckState = UpdateCheckState.IDLE
 
     private val state = MutableStateFlow(stateFromProgress(progress))
     val uiState: StateFlow<DictaUiState> = state.asStateFlow()
 
     init {
+        checkForUpdates(force = true)
         viewModelScope.launch {
             while (true) {
                 delay(250)
                 enforceCameraWatchdog()
             }
+        }
+    }
+
+    fun checkForUpdates(force: Boolean = false) {
+        val now = SystemClock.elapsedRealtime()
+        if (!force && now - lastUpdateCheckAt < 15 * 60 * 1_000L) return
+        if (state.value.updateCheckState == UpdateCheckState.CHECKING) return
+        lastUpdateCheckAt = now
+        latestUpdateCheckState = UpdateCheckState.CHECKING
+        state.value = state.value.copy(updateCheckState = latestUpdateCheckState)
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { updateChecker.check(BuildConfig.VERSION_NAME) }
+                .onSuccess { update ->
+                    latestUpdate = update
+                    latestUpdateCheckState = UpdateCheckState.UP_TO_DATE
+                    state.value = state.value.copy(availableUpdate = latestUpdate, updateCheckState = latestUpdateCheckState)
+                }
+                .onFailure {
+                    latestUpdateCheckState = UpdateCheckState.FAILED
+                    state.value = state.value.copy(updateCheckState = latestUpdateCheckState)
+                }
         }
     }
 
@@ -355,6 +387,8 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
             wordCount = text.trim().split(Regex("\\s+")).filter(String::isNotBlank).size,
             leaderboard = runCatching { store.readLeaderboard() }.getOrDefault(emptyList()),
             cameraMessage = cameraMessage,
+            availableUpdate = latestUpdate,
+            updateCheckState = latestUpdateCheckState,
         )
     }
 
