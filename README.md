@@ -65,6 +65,8 @@ puis vérifie le rendu HTML serveur.
 
 ## Application Android native bêta
 
+[Télécharger directement la dernière bêta Android (APK)](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.3/copy-challenge-beta.apk)
+
 Le module `android/` contient la version native installable de la bêta :
 parcours Compose, caméra CameraX/MediaPipe, OCR PP-OCRv6 ONNX hors ligne et
 repli manuel. La procédure de build et d’installation est documentée dans
