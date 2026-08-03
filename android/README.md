@@ -15,6 +15,7 @@ les dossiers racine et n’est pas remplacée par ce module.
 - fables de La Fontaine aux niveaux avancé et perfectionnement, avec découpage
   vers par vers et marqueur de fin de vers ;
 - récompenses, confettis sonores et classement conservés localement ;
+- mises à jour téléchargées, vérifiées et installées depuis l’application ;
 - aucune photo, vidéo ni texte envoyé hors du téléphone.
 
 ## Build local
@@ -39,15 +40,71 @@ reste ignoré par Git.
 
 ## Installation de test
 
-[Télécharger la bêta Android publiée](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.5/copy-challenge-beta.apk)
+[Télécharger la bêta Android publiée](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.6/copy-challenge-beta.apk)
 
-L’application utilise le réseau uniquement pour vérifier les bêtas publiées sur GitHub. Elle contrôle les mises à jour au lancement et à chaque retour au premier plan, puis affiche un bouton de téléchargement lorsqu’une version plus récente est disponible. Les images, vidéos et textes restent sur le téléphone.
+L’application utilise le réseau uniquement pour vérifier et télécharger les bêtas publiées sur GitHub. L’APK est enregistré dans son cache privé, vérifié puis transmis à l’installateur Android. Le navigateur n’est plus ouvert et aucun fichier en double n’est créé. Les images, vidéos et textes restent sur le téléphone.
 
 ```text
 adb install -r app\build\outputs\apk\beta\debug\app-beta-debug.apk
 ```
 
-L’APK est signé avec une clé de débogage locale générée dans
-`beta-debug.keystore` (fichier ignoré par Git). Cette clé est destinée aux
-tests de la bêta uniquement ; une clé de distribution et une configuration
-Play devront être ajoutées avant toute publication publique.
+## Signature durable des bêtas
+
+Android n’accepte une nouvelle version par-dessus une bêta installée que si
+l’identifiant d’application **et le certificat de signature** restent les
+mêmes. Toutes les bêtas GitHub doivent donc utiliser le fichier local historique
+`android/beta-debug.keystore`, qui reste ignoré par Git et ne doit jamais être
+commité, envoyé dans une discussion ou ajouté à une archive publique.
+
+L’empreinte publique attendue du certificat est conservée dans
+`signing-cert-sha256.txt`. Avant toute publication locale, construire l’APK puis
+exécuter depuis la racine du dépôt :
+
+```powershell
+android\gradlew.bat -p android testBetaDebugUnitTest assembleBetaDebug
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File android\scripts\verify-android-signing.ps1
+```
+
+Le second script lit uniquement le certificat public intégré à l’APK. Il échoue
+si l’APK n’est pas signé par la clé historique. Ne publier aucun APK si cette
+vérification échoue.
+
+### Publication optionnelle par GitHub Actions
+
+Le workflow `.github/workflows/android-beta-release.yml` est déclenché par les
+tags `v*-beta.*`. Il vérifie la version, reconstruit exactement
+`android/beta-debug.keystore`, teste l’application, construit l’APK, vérifie son
+certificat puis crée une prerelease GitHub. Il échoue explicitement avant le
+build si le secret n’est pas configuré ; il ne génère jamais une autre clé.
+
+Le seul secret Actions requis est `DICTA_BETA_KEYSTORE_BASE64`. Sa création doit
+être faite manuellement depuis une machine de confiance par un administrateur du
+dépôt. Pour préparer sa valeur sous Windows sans l’afficher dans le terminal :
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("android\beta-debug.keystore")) | Set-Clipboard
+```
+
+Coller ensuite cette valeur dans **GitHub → Settings → Secrets and variables →
+Actions**, puis vider le presse-papiers. Codex et le workflow ne doivent pas
+tenter de créer ou modifier ce secret.
+
+Pour publier la prochaine bêta :
+
+1. incrémenter `versionCode` sans jamais le réinitialiser, puis modifier
+   `versionName` dans `app/build.gradle.kts` ;
+2. vérifier localement le build et le certificat avec les commandes ci-dessus ;
+3. commiter les sources ;
+4. créer un tag exactement égal à `v${versionName}` ; `versionCode` doit être
+   strictement supérieur à celui de toutes les bêtas déjà taguées ;
+5. pousser le tag seulement lorsque le secret a été configuré et vérifié par un
+   administrateur.
+
+La cohérence peut être contrôlée avant de créer le tag :
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File android\scripts\verify-beta-version.ps1 -Tag v0.1.0-beta.6 -CheckGitHistory
+```
+
+Cette clé reste réservée au canal bêta distribué directement. Une publication
+Play Store devra utiliser sa propre stratégie de signature et un autre canal.

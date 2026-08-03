@@ -119,7 +119,7 @@ class StableCloneStructureTest {
         assertTrue(setup.contains("HelpPanel("))
         assertFalse(setup.contains("\"Rechercher les mises à jour\""))
         assertFalse(setup.contains("\"L’application est à jour"))
-        assertTrue(help.contains("UpdateSection(state, onCheckUpdates, onDownloadUpdate)"))
+        assertTrue(help.contains("UpdateSection(state, onCheckUpdates, onDownloadUpdate, onInstallUpdate, installPermissionMessage)"))
         assertTrue(help.contains("\"Rechercher les mises à jour\""))
         assertTrue(help.contains("\"L’application est à jour"))
         assertTrue(help.contains("\"Télécharger la mise à jour\""))

@@ -1,6 +1,10 @@
 package com.baptiste.dicta.beta
 
 import android.Manifest
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.Intent
 import android.graphics.Bitmap
@@ -9,7 +13,9 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.media.ToneGenerator
+import android.os.Build
 import android.os.SystemClock
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
@@ -140,6 +146,7 @@ private const val REWARD_FEATURE_DURATION_MS = 2_400L
 private const val CONFETTI_DURATION_MS = 6_500
 private const val CONFETTI_MAX_DELAY_MS = 4_140
 private const val CONFETTI_TOTAL_DURATION_MS = CONFETTI_DURATION_MS + CONFETTI_MAX_DELAY_MS
+private const val UPDATE_INSTALL_STATUS_ACTION = "com.baptiste.dicta.beta.UPDATE_INSTALL_STATUS"
 private val PLACEMENT_CAMERA_HEIGHT = 280.dp
 
 @Composable
@@ -285,6 +292,57 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
     val context = LocalContext.current
     var helpOpen by rememberSaveable { mutableStateOf(false) }
     var levelMenuOpen by remember { mutableStateOf(false) }
+    var installPermissionMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    val installStatusIntentSender = remember(context) {
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+            if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
+        PendingIntent.getBroadcast(
+            context,
+            0,
+            Intent(UPDATE_INSTALL_STATUS_ACTION).setPackage(context.packageName),
+            flags,
+        ).intentSender
+    }
+    val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (Build.VERSION.SDK_INT < 26 || context.packageManager.canRequestPackageInstalls()) {
+            installPermissionMessage = null
+            vm.installDownloadedUpdate(installStatusIntentSender)
+        } else {
+            installPermissionMessage = "Autorise Copy Challenge à installer ses mises à jour, puis réessaie."
+        }
+    }
+    val installStatusReceiver = remember(vm) {
+        object : BroadcastReceiver() {
+            override fun onReceive(receiverContext: Context, intent: Intent) {
+                vm.handleUpdateInstallStatus(intent)?.let { confirmation ->
+                    receiverContext.startActivity(confirmation.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+            }
+        }
+    }
+    DisposableEffect(context, installStatusReceiver) {
+        ContextCompat.registerReceiver(
+            context,
+            installStatusReceiver,
+            IntentFilter(UPDATE_INSTALL_STATUS_ACTION),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        onDispose { runCatching { context.unregisterReceiver(installStatusReceiver) } }
+    }
+    val installUpdate = {
+        if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
+            installPermissionMessage = "Une autorisation Android est nécessaire une seule fois pour les mises à jour internes."
+            installPermissionLauncher.launch(
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:${context.packageName}"),
+                ),
+            )
+        } else {
+            installPermissionMessage = null
+            vm.installDownloadedUpdate(installStatusIntentSender)
+        }
+    }
     AppColumn(
         showInfo = true,
         infoExpanded = helpOpen,
@@ -295,9 +353,9 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
             HelpPanel(
                 state = state,
                 onCheckUpdates = { vm.checkForUpdates(force = true) },
-                onDownloadUpdate = { downloadUrl ->
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)))
-                },
+                onDownloadUpdate = vm::downloadAvailableUpdate,
+                onInstallUpdate = installUpdate,
+                installPermissionMessage = installPermissionMessage,
                 onClose = { helpOpen = false },
             )
         }
@@ -390,7 +448,9 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
 private fun HelpPanel(
     state: DictaUiState,
     onCheckUpdates: () -> Unit,
-    onDownloadUpdate: (String) -> Unit,
+    onDownloadUpdate: () -> Unit,
+    onInstallUpdate: () -> Unit,
+    installPermissionMessage: String?,
     onClose: () -> Unit,
 ) {
     Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = PaperStrong.copy(alpha = .96f))) {
@@ -420,7 +480,7 @@ private fun HelpPanel(
                     }
                 }
             }
-            UpdateSection(state, onCheckUpdates, onDownloadUpdate)
+            UpdateSection(state, onCheckUpdates, onDownloadUpdate, onInstallUpdate, installPermissionMessage)
         }
     }
 }
@@ -429,7 +489,9 @@ private fun HelpPanel(
 private fun UpdateSection(
     state: DictaUiState,
     onCheckUpdates: () -> Unit,
-    onDownloadUpdate: (String) -> Unit,
+    onDownloadUpdate: () -> Unit,
+    onInstallUpdate: () -> Unit,
+    installPermissionMessage: String?,
 ) {
     Column(
         modifier = Modifier
@@ -442,9 +504,36 @@ private fun UpdateSection(
         Text("Mises à jour", color = Ink, fontWeight = FontWeight.ExtraBold)
         state.availableUpdate?.let { update ->
             Text("Version ${update.versionName} disponible", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text("Une nouvelle bêta de Copy Challenge est prête à télécharger.", color = Muted, fontSize = 12.sp)
-            Button(onClick = { onDownloadUpdate(update.downloadUrl) }) {
-                Text("Télécharger la mise à jour")
+            Text("Copy Challenge peut télécharger cette version directement, sans ouvrir le navigateur.", color = Muted, fontSize = 12.sp)
+            when (state.updateDownloadState) {
+                UpdateDownloadState.IDLE -> Button(onClick = onDownloadUpdate) {
+                    Text("Télécharger la mise à jour")
+                }
+                UpdateDownloadState.DOWNLOADING -> {
+                    val progress = (state.updateDownloadProgress ?: 0).coerceIn(0, 100)
+                    Text("Téléchargement : $progress %", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    LinearProgressIndicator(
+                        progress = progress / 100f,
+                        modifier = Modifier.fillMaxWidth().height(7.dp).clip(CircleShape),
+                        color = Violet,
+                        trackColor = Ink.copy(alpha = .1f),
+                    )
+                }
+                UpdateDownloadState.READY_TO_INSTALL -> {
+                    Text("Téléchargement terminé et vérifié.", color = Success, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    when (state.updateInstallState) {
+                        UpdateInstallState.COMMITTING -> Text("Installation en cours…", color = Muted, fontSize = 13.sp)
+                        UpdateInstallState.WAITING_FOR_USER -> Text("Confirme la mise à jour dans l’écran Android.", color = Muted, fontSize = 13.sp)
+                        UpdateInstallState.SUCCEEDED -> Text("Mise à jour installée. Copy Challenge va redémarrer.", color = Success, fontSize = 13.sp)
+                        else -> Button(onClick = onInstallUpdate) { Text("Installer la mise à jour") }
+                    }
+                    installPermissionMessage?.let { Text(it, color = Coral, fontSize = 12.sp, lineHeight = 17.sp) }
+                    state.updateInstallMessage?.let { Text(it, color = if (state.updateInstallState == UpdateInstallState.FAILED) Coral else Muted, fontSize = 12.sp, lineHeight = 17.sp) }
+                }
+                UpdateDownloadState.FAILED -> {
+                    Text(state.updateDownloadMessage ?: "Le téléchargement a échoué.", color = Coral, fontSize = 12.sp, lineHeight = 17.sp)
+                    Button(onClick = onDownloadUpdate) { Text("Réessayer le téléchargement") }
+                }
             }
         } ?: run {
             TextButton(

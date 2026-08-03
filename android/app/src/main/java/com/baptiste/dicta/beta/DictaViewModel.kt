@@ -1,6 +1,9 @@
 package com.baptiste.dicta.beta
 
 import android.app.Application
+import android.content.Intent
+import android.content.IntentSender
+import android.content.pm.PackageInstaller
 import android.graphics.Bitmap
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
@@ -27,8 +30,14 @@ import com.baptiste.dicta.beta.ocr.OnnxOcrEngine
 import com.baptiste.dicta.beta.vision.AttentionReading
 import com.baptiste.dicta.beta.vision.AttentionState
 import com.baptiste.dicta.beta.update.AppUpdate
+import com.baptiste.dicta.beta.update.ApkPackageInstaller
+import com.baptiste.dicta.beta.update.ApkUpdateDownloader
+import com.baptiste.dicta.beta.update.ApkUpdateValidator
+import com.baptiste.dicta.beta.update.UpdateDownloadAlreadyRunningException
+import com.baptiste.dicta.beta.update.ValidatedUpdateApk
 import com.baptiste.dicta.beta.update.GitHubReleaseUpdateChecker
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +49,8 @@ enum class AppScreen { SETUP, PLACEMENT, CALIBRATION, SESSION, SCAN, SUMMARY, ER
 enum class CalibrationStage { PREPARING, MEASURING, READY, FAILED }
 enum class OcrScanStage { READY, PROCESSING, REVIEW, ERROR }
 enum class UpdateCheckState { IDLE, CHECKING, UP_TO_DATE, FAILED }
+enum class UpdateDownloadState { IDLE, DOWNLOADING, READY_TO_INSTALL, FAILED }
+enum class UpdateInstallState { IDLE, COMMITTING, WAITING_FOR_USER, SUCCEEDED, FAILED }
 
 data class DictaUiState(
     val screen: AppScreen = AppScreen.SETUP,
@@ -66,6 +77,12 @@ data class DictaUiState(
     val availableUpdate: AppUpdate? = null,
     val updateCheckState: UpdateCheckState = UpdateCheckState.IDLE,
     val updateCheckMessage: String? = null,
+    val updateDownloadState: UpdateDownloadState = UpdateDownloadState.IDLE,
+    val updateDownloadProgress: Int? = null,
+    val updateDownloadMessage: String? = null,
+    val downloadedUpdate: ValidatedUpdateApk? = null,
+    val updateInstallState: UpdateInstallState = UpdateInstallState.IDLE,
+    val updateInstallMessage: String? = null,
     val error: String? = null,
 )
 
@@ -85,10 +102,20 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
     private var hasSeenScreenInFragment = false
     private val ocrEngine = OnnxOcrEngine(application.assets)
     private val updateChecker = GitHubReleaseUpdateChecker()
+    private val updateDownloader = ApkUpdateDownloader(application.cacheDir)
+    private val updateValidator = ApkUpdateValidator(application)
+    private val packageInstaller = ApkPackageInstaller(application)
+    private var updateDownloadJob: Job? = null
     private var lastUpdateCheckAt = 0L
     private var latestUpdate: AppUpdate? = null
     private var latestUpdateCheckState = UpdateCheckState.IDLE
     private var latestUpdateCheckMessage: String? = null
+    private var latestUpdateDownloadState = UpdateDownloadState.IDLE
+    private var latestUpdateDownloadProgress: Int? = null
+    private var latestUpdateDownloadMessage: String? = null
+    private var latestDownloadedUpdate: ValidatedUpdateApk? = null
+    private var latestUpdateInstallState = UpdateInstallState.IDLE
+    private var latestUpdateInstallMessage: String? = null
 
     private val state = MutableStateFlow(stateFromProgress(progress))
     val uiState: StateFlow<DictaUiState> = state.asStateFlow()
@@ -145,6 +172,118 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
         progress = StoredProgress(level, index, cursors, level.recommendedLetters)
         persistProgress()
         state.value = stateFromProgress(progress, cameraMessage = state.value.cameraMessage)
+    }
+
+    fun downloadAvailableUpdate() {
+        val update = state.value.availableUpdate ?: return
+        if (updateDownloadJob?.isActive == true) return
+        val cached = latestDownloadedUpdate
+        if (cached != null && cached.file.isFile && cached.versionName.removePrefix("v") == update.versionName.removePrefix("v")) {
+            setDownloadState(UpdateDownloadState.READY_TO_INSTALL, 100, null, cached)
+            return
+        }
+        setDownloadState(UpdateDownloadState.DOWNLOADING, 0, null, null)
+        latestUpdateInstallState = UpdateInstallState.IDLE
+        latestUpdateInstallMessage = null
+        updateDownloadJob = viewModelScope.launch(Dispatchers.IO) {
+            val ownerJob = coroutineContext[Job]
+            val outcome = runCatching {
+                updateDownloader.download(
+                    update = update,
+                    onProgress = { progress ->
+                        val percent = progress.percent
+                        if (percent != latestUpdateDownloadProgress) {
+                            setDownloadState(UpdateDownloadState.DOWNLOADING, percent, null, null)
+                        }
+                    },
+                    shouldContinue = { ownerJob?.isActive != false },
+                    validateBeforeCommit = { partial -> updateValidator.validate(partial, update.versionName) },
+                )
+                val finalFile = updateDownloader.cachedApk()
+                    ?: error("Downloaded update disappeared before validation")
+                updateValidator.validate(finalFile, update.versionName)
+            }
+            outcome.onSuccess { validated ->
+                setDownloadState(UpdateDownloadState.READY_TO_INSTALL, 100, null, validated)
+            }.onFailure { error ->
+                if (ownerJob?.isActive == false) return@onFailure
+                val message = when (error) {
+                    is UpdateDownloadAlreadyRunningException -> "Un téléchargement est déjà en cours."
+                    is SecurityException -> "La mise à jour téléchargée n’a pas pu être vérifiée et a été refusée."
+                    else -> "Le téléchargement de la mise à jour a échoué. Vérifie ta connexion puis réessaie."
+                }
+                setDownloadState(UpdateDownloadState.FAILED, null, message, null)
+            }
+        }
+    }
+
+    /** Commits the validated APK to PackageInstaller; UI supplies a status IntentSender. */
+    fun installDownloadedUpdate(statusReceiver: IntentSender) {
+        val downloaded = latestDownloadedUpdate ?: return
+        if (latestUpdateInstallState == UpdateInstallState.COMMITTING) return
+        setInstallState(UpdateInstallState.COMMITTING, null)
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val validatedAgain = updateValidator.validate(downloaded.file, downloaded.versionName)
+                packageInstaller.commit(validatedAgain, statusReceiver)
+            }.onFailure {
+                setInstallState(UpdateInstallState.FAILED, "L’installation de la mise à jour n’a pas pu démarrer.")
+            }
+        }
+    }
+
+    /** Updates UI state and returns the system confirmation Intent when Android requires one. */
+    fun handleUpdateInstallStatus(intent: Intent): Intent? {
+        return when (ApkPackageInstaller.status(intent)) {
+            PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                setInstallState(UpdateInstallState.WAITING_FOR_USER, "Android demande une confirmation pour installer la mise à jour.")
+                ApkPackageInstaller.pendingUserAction(intent)
+            }
+            PackageInstaller.STATUS_SUCCESS -> {
+                setInstallState(UpdateInstallState.SUCCEEDED, null)
+                null
+            }
+            else -> {
+                val detail = ApkPackageInstaller.statusMessage(intent)?.takeIf(String::isNotBlank)
+                setInstallState(UpdateInstallState.FAILED, detail ?: "L’installation de la mise à jour a échoué.")
+                null
+            }
+        }
+    }
+
+    fun retryUpdateDownload() {
+        if (latestUpdateDownloadState == UpdateDownloadState.DOWNLOADING) return
+        setDownloadState(UpdateDownloadState.IDLE, null, null, null)
+        downloadAvailableUpdate()
+    }
+
+    private fun setDownloadState(
+        downloadState: UpdateDownloadState,
+        progress: Int?,
+        message: String?,
+        downloaded: ValidatedUpdateApk?,
+    ) {
+        latestUpdateDownloadState = downloadState
+        latestUpdateDownloadProgress = progress?.coerceIn(0, 100)
+        latestUpdateDownloadMessage = message
+        latestDownloadedUpdate = downloaded
+        state.value = state.value.copy(
+            updateDownloadState = latestUpdateDownloadState,
+            updateDownloadProgress = latestUpdateDownloadProgress,
+            updateDownloadMessage = latestUpdateDownloadMessage,
+            downloadedUpdate = latestDownloadedUpdate,
+            updateInstallState = latestUpdateInstallState,
+            updateInstallMessage = latestUpdateInstallMessage,
+        )
+    }
+
+    private fun setInstallState(installState: UpdateInstallState, message: String?) {
+        latestUpdateInstallState = installState
+        latestUpdateInstallMessage = message
+        state.value = state.value.copy(
+            updateInstallState = latestUpdateInstallState,
+            updateInstallMessage = latestUpdateInstallMessage,
+        )
     }
 
     fun advanceChallenge() {
@@ -529,6 +668,12 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
             availableUpdate = latestUpdate,
             updateCheckState = latestUpdateCheckState,
             updateCheckMessage = latestUpdateCheckMessage,
+            updateDownloadState = latestUpdateDownloadState,
+            updateDownloadProgress = latestUpdateDownloadProgress,
+            updateDownloadMessage = latestUpdateDownloadMessage,
+            downloadedUpdate = latestDownloadedUpdate,
+            updateInstallState = latestUpdateInstallState,
+            updateInstallMessage = latestUpdateInstallMessage,
         )
     }
 

@@ -67,9 +67,9 @@ puis vérifie le rendu HTML serveur.
 
 ### Installer la bêta Android
 
-[Télécharger directement la dernière bêta Android (APK)](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.5/copy-challenge-beta.apk)
+[Télécharger directement la dernière bêta Android (APK)](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.6/copy-challenge-beta.apk)
 
-Android peut demander d’autoriser l’installation depuis le navigateur. La bêta vérifie ensuite automatiquement les nouvelles versions au lancement et au retour dans l’application, et propose leur téléchargement.
+Android peut demander d’autoriser cette installation initiale depuis le navigateur. Les versions suivantes sont téléchargées et vérifiées directement par Copy Challenge, puis installées comme mises à jour sans créer de fichiers APK en double.
 
 Le module `android/` contient l’application native installable : caméra
 CameraX/MediaPipe pour le regard, photo arrière confirmée avant reconnaissance hors ligne, fables de
