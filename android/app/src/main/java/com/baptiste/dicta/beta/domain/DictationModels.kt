@@ -4,6 +4,7 @@ enum class SchoolLevel(
     val label: String,
     val cycle: String,
     val recommendedLetters: Int,
+    /** Kept for source compatibility with the optional OCR flow; stable scoring does not use it. */
     val referenceLettersPerSecond: Double,
     val texts: List<String>,
 ) {
@@ -30,7 +31,7 @@ enum class SchoolLevel(
         ),
     ),
     CE2(
-        "CE2 — Niveau intermédiaire",
+        "CE2 — Cours élémentaire 2e année",
         "Cycle 2 · apprentissages fondamentaux",
         10,
         34.0 / 60.0,
@@ -41,7 +42,7 @@ enum class SchoolLevel(
         ),
     ),
     CM1(
-        "CM1 — Niveau avancé",
+        "CM1 — Cours moyen 1re année",
         "Cycle 3 · consolidation",
         12,
         45.0 / 60.0,
@@ -52,7 +53,7 @@ enum class SchoolLevel(
         ),
     ),
     CM2(
-        "CM2 — Perfectionnement",
+        "CM2 — Cours moyen 2e année",
         "Cycle 3 · consolidation",
         14,
         46.0 / 60.0,
@@ -71,38 +72,40 @@ data class Exercise(
     val fragments: List<String>,
 )
 
-private val wordPattern = Regex("\\S+")
+fun countLetters(value: String): Int = value.count(Char::isLetter)
 
-fun countLetters(value: String): Int = value.count { it.isLetter() }
+private val sentenceEndPattern = Regex("""[.!?](?:[»"')\]]*)$""")
 
-/** Splits at sentence punctuation first, then packs complete words under the letter limit. */
+private fun endsSentence(word: String): Boolean = sentenceEndPattern.containsMatchIn(word)
+
+/**
+ * Matches the stable web splitter: normalize whitespace, add complete words
+ * until the target is reached, and always stop at a sentence boundary first.
+ * A long final word may therefore make a fragment exceed [maxLetters].
+ */
 fun splitTextIntoFragments(text: String, maxLetters: Int): List<String> {
     require(maxLetters > 0) { "maxLetters must be positive" }
-    val sentences = text.trim().split(Regex("(?<=[.!?])\\s+"))
+    val normalized = text.trim().replace(Regex("\\s+"), " ")
+    if (normalized.isEmpty()) return emptyList()
+
+    val words = normalized.split(' ')
     val fragments = mutableListOf<String>()
-    val current = mutableListOf<String>()
-    var currentLetters = 0
+    var offset = 0
 
-    fun flush() {
-        if (current.isNotEmpty()) {
-            fragments += current.joinToString(" ")
-            current.clear()
-            currentLetters = 0
+    while (offset < words.size) {
+        var letters = 0
+        var size = 0
+        while (offset + size < words.size) {
+            val word = words[offset + size]
+            letters += countLetters(word)
+            size += 1
+            if (endsSentence(word) || letters >= maxLetters) break
         }
+        fragments += words.subList(offset, offset + size).joinToString(" ")
+        offset += size
     }
 
-    for (sentence in sentences) {
-        for (word in wordPattern.findAll(sentence).map { it.value }) {
-            val wordLetters = countLetters(word)
-            if (current.isNotEmpty() && currentLetters + 1 + wordLetters > maxLetters) flush()
-            val separator = if (current.isEmpty()) 0 else 1
-            current += word
-            currentLetters += separator + wordLetters
-            if (countLetters(current.joinToString(" ")) >= maxLetters && word.lastOrNull()?.let { it in ".!?" } == true) flush()
-        }
-    }
-    flush()
-    return fragments.ifEmpty { listOf(text.trim()) }
+    return fragments
 }
 
 fun createExercise(level: SchoolLevel, maxLetters: Int = level.recommendedLetters, index: Int = 0): Exercise {
@@ -112,6 +115,6 @@ fun createExercise(level: SchoolLevel, maxLetters: Int = level.recommendedLetter
         id = "${level.name.lowercase()}-$safeIndex-$maxLetters",
         level = level,
         sourceText = source,
-        fragments = splitTextIntoFragments(source, maxLetters),
+        fragments = splitTextIntoFragments(source, maxLetters = maxLetters),
     )
 }

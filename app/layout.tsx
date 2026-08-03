@@ -10,16 +10,16 @@ export async function generateMetadata(): Promise<Metadata> {
   const origin = `${protocol}://${host}`;
 
   return {
-    title: "Copy Challenge",
+    title: "bêta copy chalenge",
     description: "Mémoriser quelques mots, les écrire, puis avancer à son rythme.",
     manifest: "/manifest.webmanifest",
-    applicationName: "Copy Challenge",
-    appleWebApp: { capable: true, statusBarStyle: "default", title: "Copy Challenge" },
+    applicationName: "bêta copy chalenge",
+    appleWebApp: { capable: true, statusBarStyle: "default", title: "bêta copy chalenge" },
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: {
-      title: "Copy Challenge — Challenge de mémoire",
+      title: "bêta copy chalenge — Challenge de mémoire",
       description: "Un challenge visuel qui masque les mots quand l’élève regarde son cahier.",
-      images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "Copy Challenge, challenge de mémoire" }],
+      images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "bêta copy chalenge, challenge de mémoire" }],
       locale: "fr_FR",
       type: "website",
     },

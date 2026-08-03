@@ -13,6 +13,7 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work --ignore-pattern public/ocr/wasm"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "@mediapipe/tasks-vision": "^1.0.1",
     "@paddleocr/paddleocr-js": "^0.4.2",
     "dictionary-fr": "^3.0.0",
