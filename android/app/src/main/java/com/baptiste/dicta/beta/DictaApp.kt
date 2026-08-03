@@ -15,6 +15,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -83,8 +84,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -428,27 +431,12 @@ private fun HomeIllustration() {
         colors = CardDefaults.cardColors(containerColor = PaperStrong),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
     ) {
-        Canvas(Modifier.fillMaxSize().semantics { contentDescription = "Un œil, un cahier et un crayon illustrent le challenge de mémoire." }) {
-            drawCircle(VioletSoft, radius = size.height * .7f, center = Offset(size.width * .08f, size.height * .15f))
-            drawCircle(Mint, radius = size.height * .55f, center = Offset(size.width * .94f, size.height * .85f))
-            val eyeRect = Rect(size.width * .09f, size.height * .25f, size.width * .42f, size.height * .66f)
-            drawOval(Color.White, topLeft = eyeRect.topLeft, size = eyeRect.size)
-            drawOval(Ink.copy(alpha = .18f), topLeft = eyeRect.topLeft, size = eyeRect.size, style = Stroke(width = 4f))
-            drawCircle(Violet, radius = size.height * .085f, center = eyeRect.center)
-            drawCircle(Ink, radius = size.height * .037f, center = eyeRect.center)
-            val notebookLeft = size.width * .43f
-            val notebookTop = size.height * .18f
-            val notebookSize = Size(size.width * .43f, size.height * .64f)
-            drawRoundRect(Color.White, Offset(notebookLeft, notebookTop), notebookSize, CornerRadius(20f, 20f))
-            drawRoundRect(Ink.copy(alpha = .12f), Offset(notebookLeft, notebookTop), notebookSize, CornerRadius(20f, 20f), style = Stroke(3f))
-            drawLine(Violet.copy(alpha = .35f), Offset(notebookLeft + notebookSize.width / 2, notebookTop + 8), Offset(notebookLeft + notebookSize.width / 2, notebookTop + notebookSize.height - 8), strokeWidth = 3f)
-            repeat(3) { row ->
-                val y = notebookTop + notebookSize.height * (.3f + row * .18f)
-                drawLine(Violet.copy(alpha = .25f), Offset(notebookLeft + 18, y), Offset(notebookLeft + notebookSize.width / 2 - 10, y), strokeWidth = 3f, cap = StrokeCap.Round)
-                drawLine(Violet.copy(alpha = .25f), Offset(notebookLeft + notebookSize.width / 2 + 10, y), Offset(notebookLeft + notebookSize.width - 18, y), strokeWidth = 3f, cap = StrokeCap.Round)
-            }
-            drawLine(Coral, Offset(size.width * .70f, size.height * .83f), Offset(size.width * .92f, size.height * .24f), strokeWidth = 16f, cap = StrokeCap.Round)
-        }
+        Image(
+            painter = painterResource(R.drawable.dicta_banner_tilted_notebook),
+            contentDescription = "Un œil, un cahier et un crayon illustrent le challenge de mémoire.",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
     }
 }
 

@@ -35,6 +35,15 @@ class StableCloneStructureTest {
     }
 
     @Test
+    fun homeBannerUsesTheWebSiteAsset() {
+        val ui = sourceRoot.resolve("DictaApp.kt").readText()
+        val banner = File("src/main/res/drawable-nodpi/dicta_banner_tilted_notebook.png")
+
+        assertTrue(ui.contains("painterResource(R.drawable.dicta_banner_tilted_notebook)"))
+        assertTrue("Missing shared website banner asset", banner.isFile)
+    }
+
+    @Test
     fun viewModelUsesWorkingCalibrationDirectScoreAndFailClosedTiming() {
         val viewModel = sourceRoot.resolve("DictaViewModel.kt").readText()
 
