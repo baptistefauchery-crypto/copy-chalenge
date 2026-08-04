@@ -18,8 +18,8 @@ android {
         applicationId = "com.baptiste.dicta.beta"
         minSdk = 26
         targetSdk = 33
-        versionCode = 6
-        versionName = "0.1.0-beta.6"
+        versionCode = 7
+        versionName = "0.1.0-beta.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

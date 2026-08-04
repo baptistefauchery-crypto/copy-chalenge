@@ -905,7 +905,7 @@ private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: Cam
                         .clip(RoundedCornerShape(24.dp))
                         .background(Color(0xFF171627)),
                 ) {
-                    if (capturedPhoto != null && state.ocrScanStage == OcrScanStage.READY) {
+                    if (capturedPhoto != null) {
                         Image(
                             bitmap = capturedPhoto.asImageBitmap(),
                             contentDescription = "Photo de la copie à vérifier",
@@ -915,7 +915,7 @@ private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: Cam
                     } else {
                         CameraPreview(coordinator, CameraMode.BACK, Modifier.fillMaxSize()) { vm.ocrCaptureFailed() }
                     }
-                    Canvas(Modifier.fillMaxSize()) {
+                    if (state.ocrScanStage == OcrScanStage.READY && capturedPhoto == null) Canvas(Modifier.fillMaxSize()) {
                         drawRect(Color.Black.copy(alpha = .12f))
                         val guide = Rect(size.width * .07f, size.height * .12f, size.width * .93f, size.height * .88f)
                         drawRoundRect(
@@ -979,8 +979,8 @@ private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: Cam
                             )
                             PrimaryButton("Utiliser cette photo", onClick = {
                                 val photo = capturedPhotoState.value ?: return@PrimaryButton
-                                capturedPhotoState.value = null
-                                vm.scanHandwriting(photo)
+                                val analysisCopy = photo.copy(Bitmap.Config.ARGB_8888, false)
+                                vm.scanHandwriting(analysisCopy)
                             })
                             OutlinedButton(
                                 onClick = {
@@ -997,7 +997,11 @@ private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: Cam
                     OcrScanStage.PROCESSING -> Unit
                     OcrScanStage.ERROR -> {
                         Text(state.ocrMessage ?: "La copie n’a pas pu être reconnue.", color = Coral, lineHeight = 20.sp, textAlign = TextAlign.Center)
-                        PrimaryButton("Reprendre une photo", vm::retryOcrScan)
+                        PrimaryButton("Reprendre une photo", onClick = {
+                            capturedPhotoState.value?.takeUnless(Bitmap::isRecycled)?.recycle()
+                            capturedPhotoState.value = null
+                            vm.retryOcrScan()
+                        })
                     }
                     OcrScanStage.REVIEW -> {
                         val recognized = analysis?.selection?.result?.text.orEmpty()
@@ -1015,7 +1019,11 @@ private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: Cam
                             }
                         }
                         PrimaryButton("Afficher mon score", vm::showScoreAfterScan)
-                        TextButton(onClick = vm::retryOcrScan, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                        TextButton(onClick = {
+                            capturedPhotoState.value?.takeUnless(Bitmap::isRecycled)?.recycle()
+                            capturedPhotoState.value = null
+                            vm.retryOcrScan()
+                        }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                             Text("Reprendre une photo", color = Muted, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
                         }
                     }
@@ -1099,7 +1107,6 @@ private fun RewardDisplay(score: Int, featured: Boolean) {
         Badge.TROPHY -> "🏆" to "Coupe en or"
     }
     val stars = "★".repeat(reward.stars)
-    val scale = if (featured) 2.2f else 1f
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1109,8 +1116,31 @@ private fun RewardDisplay(score: Int, featured: Boolean) {
             .semantics { contentDescription = if (reward.stars == 0) "Aucune étoile" else "${reward.stars} étoiles${badge?.let { ", ${it.second}" } ?: ""}" },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (stars.isNotEmpty()) Text(stars, color = Color(0xFFF3B34F), fontSize = (28 * scale).sp, fontWeight = FontWeight.Black)
-        if (badge != null) Text("${badge.first}  ${badge.second}", color = Ink, fontSize = (16 * scale).sp, fontWeight = FontWeight.ExtraBold)
+        if (stars.isNotEmpty()) Text(
+            stars,
+            color = Color(0xFFF3B34F),
+            fontSize = if (featured) 54.sp else 28.sp,
+            lineHeight = if (featured) 58.sp else 32.sp,
+            fontWeight = FontWeight.Black,
+            maxLines = 1,
+        )
+        if (badge != null) Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Text(badge.first, fontSize = if (featured) 48.sp else 28.sp, lineHeight = if (featured) 52.sp else 32.sp)
+            Spacer(Modifier.width(if (featured) 12.dp else 7.dp))
+            Text(
+                badge.second,
+                modifier = Modifier.weight(1f, fill = false),
+                color = Ink,
+                fontSize = if (featured) 28.sp else 16.sp,
+                lineHeight = if (featured) 32.sp else 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 

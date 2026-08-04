@@ -23,7 +23,7 @@ data class OcrLineSelection(
 fun selectReferenceLines(
     reference: String,
     lines: List<OcrToken>,
-    minimumAnchorConfidence: Double = 0.42,
+    minimumAnchorConfidence: Double = 0.34,
 ): OcrLineSelection {
     val readableLines = lines.filter { normalizeOcr(it.text).isNotEmpty() }
     val normalizedReference = normalizeOcr(reference)
@@ -44,42 +44,47 @@ fun selectReferenceLines(
 
     val referenceWords = words(normalizedReference)
     val prefix = referenceWords.take(MAX_ANCHOR_WORDS)
-    val starts = readableLines.indices.map { start ->
-        val candidateWords = words(readableLines.drop(start).joinToString(" ") { it.text }).take(prefix.size)
-        val lexicalSimilarity = sequenceSimilarity(prefix, candidateWords)
-        val ocrConfidence = weightedConfidence(readableLines.drop(start).take(linesNeededForWords(readableLines, start, prefix.size)))
-        StartCandidate(start, lexicalSimilarity * 0.9 + ocrConfidence * 0.1)
+    val candidates = readableLines.indices.flatMap { start ->
+        (start + 1..readableLines.size).map { endExclusive ->
+            val candidate = readableLines.subList(start, endExclusive)
+            val candidateText = normalizeOcr(candidate.joinToString(" ") { it.text })
+            val candidateWords = words(candidateText)
+            val candidatePrefix = candidateWords.take(prefix.size)
+            val lexicalAnchor = sequenceSimilarity(prefix, candidatePrefix)
+            val characterAnchor = characterSimilarity(prefix.joinToString(" "), candidatePrefix.joinToString(" "))
+            val anchor = lexicalAnchor * 0.55 + characterAnchor * 0.4 + weightedConfidence(
+                candidate.take(linesNeededForWords(candidate, 0, prefix.size)),
+            ) * 0.05
+            val similarity = characterSimilarity(normalizedReference, candidateText)
+            val lengthBalance = minOf(normalizedReference.length, candidateText.length).toDouble() /
+                max(1, max(normalizedReference.length, candidateText.length))
+            val score = similarity * 0.66 + lengthBalance * 0.18 + anchor * 0.12 + weightedConfidence(candidate) * 0.04
+            RangeCandidate(start, endExclusive, anchor, score)
+        }
     }
-    val bestStart = starts.maxWithOrNull(compareBy<StartCandidate> { it.anchorConfidence }.thenBy { -it.index })!!
-    if (bestStart.anchorConfidence < minimumAnchorConfidence) {
+    val bestRange = candidates.maxWithOrNull(
+        compareBy<RangeCandidate> { it.score }
+            .thenBy { it.anchorConfidence }
+            .thenBy { -it.start }
+            .thenBy { -it.endExclusive },
+    )!!
+    if (bestRange.anchorConfidence < minimumAnchorConfidence && bestRange.score < MINIMUM_RANGE_CONFIDENCE) {
         return selection(
             status = OcrSelectionStatus.NOT_FOUND,
             lines = emptyList(),
             detectedLineCount = readableLines.size,
-            anchorConfidence = bestStart.anchorConfidence,
+            anchorConfidence = bestRange.anchorConfidence,
         )
     }
 
-    val candidateRanges = (bestStart.index + 1..readableLines.size).map { endExclusive ->
-        val candidate = readableLines.subList(bestStart.index, endExclusive)
-        val candidateText = normalizeOcr(candidate.joinToString(" ") { it.text })
-        val similarity = characterSimilarity(normalizedReference, candidateText)
-        val lengthBalance = if (normalizedReference.isEmpty() && candidateText.isEmpty()) 1.0 else {
-            minOf(normalizedReference.length, candidateText.length).toDouble() /
-                max(1, max(normalizedReference.length, candidateText.length))
-        }
-        val score = similarity * 0.72 + lengthBalance * 0.2 + weightedConfidence(candidate) * 0.08
-        RangeCandidate(endExclusive, score)
-    }
-    val bestRange = candidateRanges.maxWithOrNull(compareBy<RangeCandidate> { it.score }.thenBy { -it.endExclusive })!!
-    val selected = readableLines.subList(bestStart.index, bestRange.endExclusive)
+    val selected = readableLines.subList(bestRange.start, bestRange.endExclusive)
     return selection(
         status = OcrSelectionStatus.FOUND,
         lines = selected,
         detectedLineCount = readableLines.size,
-        startLineIndex = bestStart.index,
+        startLineIndex = bestRange.start,
         endLineIndexExclusive = bestRange.endExclusive,
-        anchorConfidence = bestStart.anchorConfidence,
+        anchorConfidence = bestRange.anchorConfidence,
     )
 }
 
@@ -149,8 +154,13 @@ private fun <T> editDistance(expected: List<T>, actual: List<T>): Int {
     return previous.last()
 }
 
-private data class StartCandidate(val index: Int, val anchorConfidence: Double)
-private data class RangeCandidate(val endExclusive: Int, val score: Double)
+private data class RangeCandidate(
+    val start: Int,
+    val endExclusive: Int,
+    val anchorConfidence: Double,
+    val score: Double,
+)
 
 private const val MAX_ANCHOR_WORDS = 5
+private const val MINIMUM_RANGE_CONFIDENCE = 0.48
 private val WORD_PATTERN = Regex("[\\p{L}\\p{M}\\p{N}]+(?:['\\u2019][\\p{L}\\p{M}\\p{N}]+)*")

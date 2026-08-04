@@ -71,9 +71,10 @@ class OnnxOcrEngine(private val assets: android.content.res.AssetManager) : Clos
     private fun recognizeLine(source: Bitmap): OcrResult {
         val session = recognizerSession()
         val inputName = session.inputNames.first()
+        val recognitionWidth = recognitionWidth(source)
         val input = imageTensor(
             source = source,
-            width = 320,
+            width = recognitionWidth,
             height = 48,
             preserveAspect = true,
             preprocessing = OcrTensorPreprocessing.RECOGNITION,
@@ -83,6 +84,12 @@ class OnnxOcrEngine(private val assets: android.content.res.AssetManager) : Clos
                 return decodeRecognition(outputs[0].value)
             }
         }
+    }
+
+    /** Preserve enough horizontal detail for a full handwritten sentence. */
+    private fun recognitionWidth(source: Bitmap): Int {
+        val aspectWidth = (source.width.toDouble() * RECOGNITION_HEIGHT / source.height.coerceAtLeast(1)).roundToInt()
+        return ((aspectWidth.coerceIn(MIN_RECOGNITION_WIDTH, MAX_RECOGNITION_WIDTH) + 31) / 32) * 32
     }
 
     /**
@@ -165,7 +172,7 @@ class OnnxOcrEngine(private val assets: android.content.res.AssetManager) : Clos
 
     private fun detectionDimensions(source: Bitmap): Pair<Int, Int> {
         val longest = max(source.width, source.height).coerceAtLeast(1)
-        val scale = min(1.0, 960.0 / longest)
+        val scale = min(1.0, 1536.0 / longest)
         fun aligned(value: Int): Int = (((value * scale).roundToInt().coerceAtLeast(32) + 31) / 32) * 32
         return aligned(source.width) to aligned(source.height)
     }
@@ -327,6 +334,9 @@ class OnnxOcrEngine(private val assets: android.content.res.AssetManager) : Clos
 
     private companion object {
         const val MODEL_NAME = "PP-OCRv6_small"
+        private const val RECOGNITION_HEIGHT = 48
+        private const val MIN_RECOGNITION_WIDTH = 320
+        private const val MAX_RECOGNITION_WIDTH = 1280
 
         fun toOcrResult(lines: List<OcrToken>): OcrResult {
             if (lines.isEmpty()) return OcrResult("", 0.0)

@@ -64,6 +64,23 @@ class OcrReferenceSelectionTest {
     }
 
     @Test
+    fun findsTheBestFullPhraseWhenTheOpeningWordsArePartlyMisread() {
+        val selection = selectReferenceLines(
+            reference = "Lina a un vélo. Elle roule dans la cour.",
+            lines = listOf(
+                OcrToken("rentrée de la maison", 0.91),
+                OcrToken("Lma a un velo Elle noule dans la cour", 0.72),
+                OcrToken("x01<~0", 0.84),
+            ),
+        )
+
+        assertEquals(OcrSelectionStatus.FOUND, selection.status)
+        assertEquals(1, selection.startLineIndex)
+        assertEquals(2, selection.endLineIndexExclusive)
+        assertEquals("Lma a un velo Elle noule dans la cour", selection.result.text)
+    }
+
+    @Test
     fun failsClosedWhenTheBeginningOfTheDictationIsNotVisible() {
         val selection = selectReferenceLines(
             reference = "Le Loup survient à jeun qui cherchait aventure.",

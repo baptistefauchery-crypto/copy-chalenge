@@ -43,7 +43,8 @@ class StableCloneStructureTest {
         assertFalse(ui.contains("Confiance OCR"))
         assertFalse(ui.contains("coordinator.capture(vm::scanHandwriting)"))
         assertTrue(ui.contains("capturedPhoto.asImageBitmap()"))
-        assertTrue(ui.contains("vm.scanHandwriting(photo)"))
+        assertTrue(ui.contains("vm.scanHandwriting(analysisCopy)"))
+        assertTrue(ui.contains("if (capturedPhoto != null)"))
     }
 
     @Test

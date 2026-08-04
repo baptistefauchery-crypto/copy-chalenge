@@ -40,7 +40,7 @@ reste ignoré par Git.
 
 ## Installation de test
 
-[Télécharger la bêta Android publiée](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.6/copy-challenge-beta.apk)
+[Télécharger la bêta Android publiée](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.7/copy-challenge-beta.apk)
 
 L’application utilise le réseau uniquement pour vérifier et télécharger les bêtas publiées sur GitHub. L’APK est enregistré dans son cache privé, vérifié puis transmis à l’installateur Android. Le navigateur n’est plus ouvert et aucun fichier en double n’est créé. Les images, vidéos et textes restent sur le téléphone.
 
@@ -103,7 +103,7 @@ Pour publier la prochaine bêta :
 La cohérence peut être contrôlée avant de créer le tag :
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File android\scripts\verify-beta-version.ps1 -Tag v0.1.0-beta.6 -CheckGitHistory
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File android\scripts\verify-beta-version.ps1 -Tag v0.1.0-beta.7 -CheckGitHistory
 ```
 
 Cette clé reste réservée au canal bêta distribué directement. Une publication

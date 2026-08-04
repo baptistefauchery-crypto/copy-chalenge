@@ -70,6 +70,12 @@ class CameraCoordinator(
                         if (rotated !== bitmap) bitmap.recycle()
                         bitmap = rotated
                     }
+                    // The visible guide is the OCR contract. Removing the
+                    // margins before detection gives small handwriting more
+                    // pixels and excludes old exercises outside the frame.
+                    val cropped = cropToScanGuide(bitmap)
+                    if (cropped !== bitmap) bitmap.recycle()
+                    bitmap = cropped
                     mainExecutor.execute { onCaptured(bitmap) }
                 } catch (error: Throwable) {
                     mainExecutor.execute { onError(error) }
@@ -92,6 +98,21 @@ class CameraCoordinator(
         analyzer?.close()
         analyzer = null
         detach()
+    }
+
+    private fun cropToScanGuide(source: Bitmap): Bitmap {
+        val left = (source.width * SCAN_GUIDE_LEFT).toInt().coerceIn(0, source.width - 1)
+        val top = (source.height * SCAN_GUIDE_TOP).toInt().coerceIn(0, source.height - 1)
+        val right = (source.width * SCAN_GUIDE_RIGHT).toInt().coerceIn(left + 1, source.width)
+        val bottom = (source.height * SCAN_GUIDE_BOTTOM).toInt().coerceIn(top + 1, source.height)
+        return Bitmap.createBitmap(source, left, top, right - left, bottom - top)
+    }
+
+    private companion object {
+        const val SCAN_GUIDE_LEFT = 0.07f
+        const val SCAN_GUIDE_TOP = 0.12f
+        const val SCAN_GUIDE_RIGHT = 0.93f
+        const val SCAN_GUIDE_BOTTOM = 0.88f
     }
 }
 
