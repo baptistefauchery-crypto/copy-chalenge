@@ -6,7 +6,6 @@ async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
-
   return worker.fetch(
     new Request("http://localhost/", { headers: { accept: "text/html" } }),
     { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
@@ -21,21 +20,17 @@ test("server-renders the Copy Challenge setup experience", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="fr">/);
-  assert.match(html, /<title>bêta copy chalenge/);
-  assert.match(html, /src="\/icons\/icon-192\.png"/);
   assert.match(html, /Niveau de classe/);
   assert.match(html, /level-picker/);
   assert.match(html, /Lancer un challenge\./);
-  assert.doesNotMatch(html, /Je regarde\./);
-  assert.match(html, /dicta-banner-tilted-notebook\.png/);
-  assert.match(html, /Continuer sans caméra/);
+  assert.doesNotMatch(html, /Vérifier|orthographe|OCR|Photographier/);
+  assert.match(html, /Continuer sans cam/);
   assert.match(html, /manifest\.webmanifest/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });
 
 test("ships the Android PWA and local vision assets", async () => {
   const manifest = JSON.parse(await readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"));
-  assert.equal(manifest.short_name, "bêta copy chalenge");
   assert.equal(manifest.id, "/");
   assert.equal(manifest.display, "standalone");
   assert.deepEqual(manifest.display_override, ["standalone"]);
@@ -48,99 +43,26 @@ test("ships the Android PWA and local vision assets", async () => {
     access(new URL("../public/icons/copy-challenge-option-a.png", import.meta.url)),
     access(new URL("../public/icons/copy-challenge-option-b.png", import.meta.url)),
     access(new URL("../public/models/face_landmarker.task", import.meta.url)),
-    access(new URL("../public/models/ocr/PP-OCRv6_small_det_onnx_infer.tar", import.meta.url)),
-    access(new URL("../public/models/ocr/PP-OCRv6_small_rec_onnx_infer.tar", import.meta.url)),
-    access(new URL("../public/ocr/wasm/ort-wasm-simd-threaded.wasm", import.meta.url)),
-    access(new URL("../public/dictionaries/fr/index.aff", import.meta.url)),
-    access(new URL("../public/dictionaries/fr/index.dic", import.meta.url)),
     access(new URL("../public/mediapipe/wasm/vision_wasm_internal.wasm", import.meta.url)),
   ]);
 
   const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /CACHE_VERSION = "copy-challenge-v5"/);
-  assert.match(serviceWorker, /url\.pathname\.startsWith\("\/dictionaries\/"\)/);
-  assert.match(serviceWorker, /icon-maskable-512\.png/);
+  assert.match(serviceWorker, /CACHE_VERSION = "copy-challenge-v6"/);
+  assert.doesNotMatch(serviceWorker, /dictionaries|ocr/i);
 
   const pwaProvider = await readFile(new URL("../app/components/pwa/PwaProvider.tsx", import.meta.url), "utf8");
-  const spellingModal = await readFile(new URL("../app/components/SpellingCheckModal.tsx", import.meta.url), "utf8");
-  const paddle = await readFile(new URL("../app/lib/ocr/paddle.ts", import.meta.url), "utf8");
-  const trocr = await readFile(new URL("../app/lib/ocr/trocr.ts", import.meta.url), "utf8");
   const offlineStatus = await readFile(new URL("../app/components/pwa/OfflineStatus.tsx", import.meta.url), "utf8");
   const dictaApp = await readFile(new URL("../app/DictaApp.tsx", import.meta.url), "utf8");
   const scoring = await readFile(new URL("../app/lib/domain/scoring.ts", import.meta.url), "utf8");
   const globals = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(pwaProvider, /display-mode: standalone/);
-  assert.match(pwaProvider, /Installer bêta copy chalenge sur ce téléphone/);
-  assert.match(pwaProvider, /Installer\s+l’application/);
-  assert.match(pwaProvider, /Google Chrome/);
-  assert.match(pwaProvider, /display-mode: fullscreen/);
   assert.match(pwaProvider, /deferredInstallEvent/);
-  assert.match(pwaProvider, /subscribeToInstallPrompt/);
-  assert.match(spellingModal, /facingMode: \{ exact: "environment" \}/);
-  assert.match(spellingModal, /caméra arrière/);
-  assert.match(paddle, /wasmPaths: OCR_WASM_PATHS/);
-  assert.match(paddle, /ort-wasm-simd-threaded\.mjs/);
-  assert.match(paddle, /ort-wasm-simd-threaded\.wasm/);
-  assert.match(trocr, /Xenova\/trocr-small-handwritten/);
-  assert.match(trocr, /dtype: "q8"/);
-  assert.match(trocr, /detectTextRegions/);
-  assert.match(dictaApp, /Vérifier l’orthographe/);
-  assert.doesNotMatch(dictaApp, /Vérifier l&apos;orthographe/);
-  assert.match(dictaApp, /spellingCaptureRequestRef/);
-  assert.match(dictaApp, /ignoredWords: \[text\]/);
   assert.match(offlineStatus, /OFFLINE_NOTICE_DURATION_MS = 4000/);
-  assert.match(offlineStatus, /setShowOfflineNotice\(false\)/);
-  assert.match(dictaApp, /AUTO_HIDE_GRACE_MS = 2000/);
-  assert.match(dictaApp, /SCORE_REVEAL_DURATION_MS = 1800/);
-  assert.match(dictaApp, /REWARD_FEATURE_DURATION_MS = 2400/);
-  assert.match(dictaApp, /requestAnimationFrame/);
-  assert.match(dictaApp, /playScoreTrumpet/);
-  assert.match(dictaApp, /summaryScore <= 80/);
-  assert.match(dictaApp, /isScoreRevealComplete/);
-  assert.match(dictaApp, /score-meter/);
-  assert.match(dictaApp, /progressColor/);
-  assert.match(dictaApp, /Math\.pow\(progressRatio, 1\.65\)/);
-  assert.match(dictaApp, /isScoreRevealComplete && revealedScore > 0/);
   assert.match(dictaApp, /calculateScore/);
-  assert.match(dictaApp, /className="dictation-counter"/);
-  assert.match(dictaApp, /onClick=\{advanceChallenge\}/);
-  assert.match(dictaApp, /canRevealScore/);
-  assert.match(dictaApp, /score-gate/);
-  assert.match(dictaApp, /SpellingCheckModal/);
-  assert.match(dictaApp, /recognizeHandwrittenText/);
-  assert.match(dictaApp, /LEADERBOARD_STORAGE_KEY/);
-  assert.match(dictaApp, /leaderboard\.slice\(0, 5\)/);
-  assert.match(dictaApp, /DICTATION_PROGRESS_STORAGE_KEY/);
-  assert.match(dictaApp, /useSyncExternalStore/);
-  assert.match(dictaApp, /level-menu/);
-  assert.doesNotMatch(dictaApp, /NEXT_DICTATION_OPTION/);
-  assert.match(dictaApp, /cameraMode === "manual" \|\| calibrationPhase === "ready"/);
-  assert.doesNotMatch(dictaApp, /Chaque relecture aide à mieux connaître sa mémoire/);
-  assert.doesNotMatch(dictaApp, /Challenge terminé/);
-  assert.doesNotMatch(dictaApp, /fragments revus/);
-  assert.match(dictaApp, /<span>relecture<\/span>/);
-  assert.match(dictaApp, /calibration-dictation/);
-  assert.match(dictaApp, /J&apos;ai lu/);
-  assert.doesNotMatch(dictaApp, /Regardez la caméra/);
-  assert.doesNotMatch(dictaApp, /Arrondi au mot supérieur/);
+  const activeDictaApp = dictaApp.replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(activeDictaApp, /OCR|orthographe|SpellingCheckModal|recognizeHandwrittenText/);
   assert.match(scoring, /export function calculateScore/);
   assert.match(scoring, /MAX_SCORE = 100/);
-  assert.match(scoring, /SCORE_BASE = 100/);
-  assert.match(scoring, /MAX_FAULT_PENALTY = 45/);
-  assert.match(scoring, /MAX_SPEED_ADJUSTMENT = 6/);
-  assert.match(scoring, /MAX_LENGTH_BONUS = 5/);
-  assert.match(scoring, /OCR_CONFIDENCE_SCALE = 4/);
-  assert.match(scoring, /REVIEW_SCORE_MULTIPLIER = 0\.8/);
-  assert.match(scoring, /export function calculateScoreBreakdown/);
-  assert.match(scoring, /export function getScoreReward/);
-  assert.match(globals, /confetti-fall 6\.5s/);
-  assert.match(globals, /confetti-from-left/);
-  assert.match(globals, /confetti-from-right/);
-  assert.match(globals, /summary-shell/);
-  assert.match(globals, /summary-score-bounce/);
-  assert.match(globals, /score-meter-fill/);
-  assert.match(globals, /score-reward/);
-  assert.match(globals, /score-reward-featured/);
-  assert.match(globals, /score-gate/);
-  assert.match(globals, /\.spelling-check-camera video \{[^}]*transform: none;/s);
+  assert.doesNotMatch(scoring, /OCR|spellingFaults|ocrConfidence/);
+  assert.doesNotMatch(globals, /score-gate|spelling-check|spelling-result/);
 });

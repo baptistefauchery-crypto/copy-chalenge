@@ -1,5 +1,5 @@
 /* Copy Challenge service worker — bump this value whenever the offline shell changes. */
-const CACHE_VERSION = "copy-challenge-v5";
+const CACHE_VERSION = "copy-challenge-v6";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -103,7 +103,6 @@ function isStaticAsset(request, url) {
     url.pathname.startsWith("/assets/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/models/") ||
-    url.pathname.startsWith("/dictionaries/") ||
     /\.(?:wasm|task|tflite|bin)$/.test(url.pathname)
   );
 }

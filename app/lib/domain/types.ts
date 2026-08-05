@@ -5,7 +5,7 @@ export type FragmentMode = "letters" | "verses";
 
 /**
  * Metadata kept separately from the displayed text so the UI can render a
- * verse-end cue without adding a character that would pollute OCR comparison.
+ * verse-end cue without adding an extra character to the displayed text.
  */
 export interface TextFragment {
   text: string;

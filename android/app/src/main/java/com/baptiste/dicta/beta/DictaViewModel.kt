@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Intent
 import android.content.IntentSender
 import android.content.pm.PackageInstaller
-import android.graphics.Bitmap
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,15 +17,10 @@ import com.baptiste.dicta.beta.domain.SchoolLevel
 import com.baptiste.dicta.beta.domain.SessionEvent
 import com.baptiste.dicta.beta.domain.SessionPhase
 import com.baptiste.dicta.beta.domain.SessionState
-import com.baptiste.dicta.beta.domain.ScoreOptions
 import com.baptiste.dicta.beta.domain.calculateScore
-import com.baptiste.dicta.beta.domain.countScoringWords
 import com.baptiste.dicta.beta.domain.createExercise
 import com.baptiste.dicta.beta.domain.createSession
 import com.baptiste.dicta.beta.domain.reduceSession
-import com.baptiste.dicta.beta.ocr.OcrScanAnalysis
-import com.baptiste.dicta.beta.ocr.OcrSelectionStatus
-import com.baptiste.dicta.beta.ocr.OnnxOcrEngine
 import com.baptiste.dicta.beta.vision.AttentionReading
 import com.baptiste.dicta.beta.vision.AttentionState
 import com.baptiste.dicta.beta.update.AppUpdate
@@ -44,10 +38,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-enum class AppScreen { SETUP, PLACEMENT, CALIBRATION, SESSION, SCAN, SUMMARY, ERROR }
+enum class AppScreen { SETUP, PLACEMENT, CALIBRATION, SESSION, SUMMARY, ERROR }
 
 enum class CalibrationStage { PREPARING, MEASURING, READY, FAILED }
-enum class OcrScanStage { READY, PROCESSING, REVIEW, ERROR }
 enum class UpdateCheckState { IDLE, CHECKING, UP_TO_DATE, FAILED }
 enum class UpdateDownloadState { IDLE, DOWNLOADING, READY_TO_INSTALL, FAILED }
 enum class UpdateInstallState { IDLE, COMMITTING, WAITING_FOR_USER, SUCCEEDED, FAILED }
@@ -65,10 +58,6 @@ data class DictaUiState(
     val calibrationStage: CalibrationStage = CalibrationStage.PREPARING,
     val calibrationAttempt: Int = 0,
     val calibrationReadConfirmed: Boolean = false,
-    val ocrScanStage: OcrScanStage = OcrScanStage.READY,
-    val ocrAnalysis: OcrScanAnalysis? = null,
-    val ocrMessage: String? = null,
-    val pendingElapsedMs: Long? = null,
     val score: Int? = null,
     val currentScoreId: String? = null,
     val isNewBestScore: Boolean = false,
@@ -100,7 +89,6 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
     private var autoHideBlockedUntil = 0L
     private var lastCameraReadingAt = 0L
     private var hasSeenScreenInFragment = false
-    private val ocrEngine = OnnxOcrEngine(application.assets)
     private val updateChecker = GitHubReleaseUpdateChecker()
     private val updateDownloader = ApkUpdateDownloader(application.cacheDir)
     private val updateValidator = ApkUpdateValidator(application)
@@ -468,100 +456,12 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
     private fun finishSession(current: DictaUiState, session: SessionState) {
         val elapsed = ((session.completedAt ?: System.currentTimeMillis()) -
             (session.startedAt ?: System.currentTimeMillis())).coerceAtLeast(1_000L)
-        state.value = current.copy(
-            screen = AppScreen.SCAN,
-            session = session,
-            ocrScanStage = OcrScanStage.READY,
-            ocrAnalysis = null,
-            ocrMessage = null,
-            pendingElapsedMs = elapsed,
-            score = null,
-            currentScoreId = null,
-            isNewBestScore = false,
-            attention = AttentionState.UNKNOWN,
-            faceDetected = false,
+        val score = calculateScore(
+            text = session.exercise.sourceText,
+            elapsedMs = elapsed,
+            reviewCount = session.totalReviews,
+            speedReferenceLettersPerSecond = session.exercise.level.referenceLettersPerSecond,
         )
-    }
-
-    fun scanHandwriting(bitmap: Bitmap) {
-        val current = state.value
-        val session = current.session
-        if (current.screen != AppScreen.SCAN || session == null || current.ocrScanStage == OcrScanStage.PROCESSING) {
-            bitmap.recycle()
-            return
-        }
-        state.value = current.copy(
-            ocrScanStage = OcrScanStage.PROCESSING,
-            ocrAnalysis = null,
-            ocrMessage = null,
-        )
-        viewModelScope.launch {
-            val outcome = runCatching { ocrEngine.analyze(bitmap, session.exercise.sourceText) }
-            bitmap.recycle()
-            outcome.onSuccess { analysis ->
-                if (state.value.screen != AppScreen.SCAN || state.value.session?.id != session.id) return@onSuccess
-                if (analysis.selection.status != OcrSelectionStatus.FOUND) {
-                    state.value = state.value.copy(
-                        ocrScanStage = OcrScanStage.ERROR,
-                        ocrAnalysis = analysis,
-                        ocrMessage = if (analysis.selection.status == OcrSelectionStatus.NOT_FOUND) {
-                            "Le début de la dictée n’a pas été identifié. Cadre uniquement cette dictée et reprends la photo."
-                        } else {
-                            "La dictée de référence est indisponible."
-                        },
-                    )
-                    return@onSuccess
-                }
-                val score = calculateScore(
-                    text = session.exercise.sourceText,
-                    elapsedMs = current.pendingElapsedMs ?: 1_000L,
-                    reviewCount = session.totalReviews,
-                    options = ScoreOptions(
-                        spellingFaults = analysis.comparison.differences.size,
-                        wordCount = countScoringWords(session.exercise.sourceText),
-                        ocrConfidence = analysis.selection.result.confidence,
-                        speedReferenceLettersPerSecond = session.exercise.level.referenceLettersPerSecond,
-                    ),
-                )
-                state.value = state.value.copy(
-                    ocrScanStage = OcrScanStage.REVIEW,
-                    ocrAnalysis = analysis,
-                    ocrMessage = null,
-                    score = score,
-                )
-            }.onFailure {
-                if (state.value.screen != AppScreen.SCAN || state.value.session?.id != session.id) return@onFailure
-                state.value = state.value.copy(
-                    ocrScanStage = OcrScanStage.ERROR,
-                    ocrAnalysis = null,
-                    ocrMessage = "La photo n’a pas pu être analysée. Reprends-la avec plus de lumière.",
-                )
-            }
-        }
-    }
-
-    fun ocrCaptureFailed() {
-        if (state.value.screen != AppScreen.SCAN) return
-        state.value = state.value.copy(
-            ocrScanStage = OcrScanStage.ERROR,
-            ocrMessage = "La photo n’a pas pu être prise. Vérifie la caméra arrière puis réessaie.",
-        )
-    }
-
-    fun retryOcrScan() {
-        if (state.value.screen != AppScreen.SCAN) return
-        state.value = state.value.copy(
-            ocrScanStage = OcrScanStage.READY,
-            ocrAnalysis = null,
-            ocrMessage = null,
-            score = null,
-        )
-    }
-
-    fun showScoreAfterScan() {
-        val current = state.value
-        val score = current.score ?: return
-        if (current.screen != AppScreen.SCAN || current.ocrScanStage != OcrScanStage.REVIEW) return
         val previousBest = current.leaderboard.firstOrNull()?.score ?: 0
         val createdAt = System.currentTimeMillis()
         val entry = LeaderboardEntry(
@@ -572,9 +472,13 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
         val leaderboard = runCatching { store.saveScore(entry) }.getOrElse { current.leaderboard }
         state.value = current.copy(
             screen = AppScreen.SUMMARY,
+            session = session,
+            score = score,
             currentScoreId = entry.id,
             isNewBestScore = score > previousBest,
             leaderboard = leaderboard,
+            attention = AttentionState.UNKNOWN,
+            faceDetected = false,
         )
     }
 
@@ -617,7 +521,6 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        ocrEngine.close()
         super.onCleared()
     }
 

@@ -5,13 +5,13 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Guards the Android beta flow, including the required local OCR gate. */
+/** Guards the finished Android beta flow. */
 class StableCloneStructureTest {
     private val sourceRoot = File("src/main/java/com/baptiste/dicta/beta")
 
     @Test
     fun composeFlowKeepsStableScreensCopyAndRewardTiming() {
-        val ui = sourceRoot.resolve("DictaApp.kt").readText()
+        val ui = sourceRoot.resolve("DictaApp.kt").readText().replace(Regex("/\\*[\\s\\S]*?\\*/"), "")
 
         listOf(
             "Copy Challenge",
@@ -24,13 +24,6 @@ class StableCloneStructureTest {
             "Revoir les mots ?",
             "Bravo, c’est terminé !",
             "Préparer le challenge suivant",
-            "Photographie ton texte",
-            "Prendre la photo",
-            "Utiliser cette photo",
-            "Reprendre la photo",
-            "Analyse de la photo",
-            "CameraMode.BACK",
-            "Afficher mon score",
             "SCORE_REVEAL_DURATION_MS = 1_800",
             "REWARD_FEATURE_DURATION_MS = 2_400L",
             "if (score > 80) playScoreFanfare()",
@@ -40,11 +33,9 @@ class StableCloneStructureTest {
         assertFalse(ui.contains("bêta copy chalenge"))
         assertFalse(ui.contains("PP-OCRv6"))
         assertFalse(ui.contains("effet miroir"))
-        assertFalse(ui.contains("Confiance OCR"))
-        assertFalse(ui.contains("coordinator.capture(vm::scanHandwriting)"))
-        assertTrue(ui.contains("capturedPhoto.asImageBitmap()"))
-        assertTrue(ui.contains("vm.scanHandwriting(analysisCopy)"))
-        assertTrue(ui.contains("if (capturedPhoto != null)"))
+        assertFalse(ui.contains("Photographie ton texte"))
+        assertFalse(ui.contains("CameraMode.BACK"))
+        assertFalse(ui.contains("spelling"))
     }
 
     @Test
@@ -87,16 +78,15 @@ class StableCloneStructureTest {
     }
 
     @Test
-    fun viewModelUsesWorkingCalibrationOcrScoreAndConservativeGazeTiming() {
+    fun viewModelUsesWorkingCalibrationScoreAndConservativeGazeTiming() {
         val viewModel = sourceRoot.resolve("DictaViewModel.kt").readText()
 
         listOf(
             "SessionEvent.BeginCalibration",
             "SessionEvent.CalibrationCompleted",
             "SessionEvent.Start(now)",
-            "screen = AppScreen.SCAN",
-            "ocrEngine.analyze(bitmap, session.exercise.sourceText)",
-            "options = ScoreOptions(",
+            "screen = AppScreen.SUMMARY",
+            "speedReferenceLettersPerSecond = session.exercise.level.referenceLettersPerSecond",
             "hasSeenScreenInFragment",
             "now - lastCameraReadingAt > 1_200L",
             "autoHideBlockedUntil = now + 2_000L",
@@ -104,7 +94,7 @@ class StableCloneStructureTest {
             "reading.state == AttentionState.NOTEBOOK",
         ).forEach { expected -> assertTrue("Missing stable flow contract: $expected", viewModel.contains(expected)) }
 
-        assertTrue(viewModel.contains("OnnxOcrEngine"))
+        assertFalse(viewModel.contains("OnnxOcrEngine"))
         assertFalse(viewModel.contains("!reading.faceDetected || reading.state == AttentionState.NOTEBOOK"))
         assertFalse(viewModel.contains("finishWithoutOcr"))
     }

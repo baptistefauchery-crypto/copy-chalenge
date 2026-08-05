@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.Intent
-import android.graphics.Bitmap
 import android.net.Uri
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -92,7 +91,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.layout.ContentScale
@@ -120,7 +118,6 @@ import com.baptiste.dicta.beta.domain.SchoolLevel
 import com.baptiste.dicta.beta.domain.SessionPhase
 import com.baptiste.dicta.beta.vision.AttentionState
 import com.baptiste.dicta.beta.vision.CameraCoordinator
-import com.baptiste.dicta.beta.vision.CameraMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -196,7 +193,6 @@ fun DictaApp(vm: DictaViewModel = viewModel()) {
                 AppScreen.PLACEMENT -> PlacementScreen(state, vm, coordinator)
                 AppScreen.CALIBRATION -> CalibrationScreen(state, vm, coordinator)
                 AppScreen.SESSION -> SessionScreen(state, vm, coordinator)
-                AppScreen.SCAN -> ScanScreen(state, vm, coordinator)
                 AppScreen.SUMMARY -> SummaryScreen(state, vm)
                 AppScreen.ERROR -> ErrorScreen(state, vm)
             }
@@ -643,7 +639,7 @@ private fun CameraStage(coordinator: CameraCoordinator, faceDetected: Boolean, o
             .clip(RoundedCornerShape(24.dp))
             .background(Brush.linearGradient(listOf(Color(0xFF373056), Color(0xFF171627)))),
     ) {
-        CameraPreview(coordinator, CameraMode.FRONT, Modifier.fillMaxSize(), onError)
+        CameraPreview(coordinator, Modifier.fillMaxSize(), onError)
         Canvas(Modifier.fillMaxSize()) {
             drawRect(Color.Black.copy(alpha = .18f))
             val guide = Rect(size.width * .16f, size.height * .11f, size.width * .84f, size.height * .84f)
@@ -685,7 +681,7 @@ private fun CalibrationScreen(state: DictaUiState, vm: DictaViewModel, coordinat
 
     if (cameraMode) {
         Box(Modifier.size(1.dp).alpha(.01f)) {
-            CameraPreview(coordinator, CameraMode.FRONT, Modifier.size(1.dp)) { vm.cameraUnavailable(it) }
+            CameraPreview(coordinator, Modifier.size(1.dp)) { vm.cameraUnavailable(it) }
         }
         LaunchedEffect(session.id, state.calibrationAttempt) {
             if (state.calibrationStage == CalibrationStage.PREPARING) {
@@ -756,7 +752,7 @@ private fun SessionScreen(state: DictaUiState, vm: DictaViewModel, coordinator: 
     val session = state.session ?: return
     if (session.detectionMode == DetectionMode.CAMERA) {
         Box(Modifier.size(1.dp).alpha(.01f)) {
-            CameraPreview(coordinator, CameraMode.FRONT, Modifier.size(1.dp)) { vm.cameraUnavailable(it) }
+            CameraPreview(coordinator, Modifier.size(1.dp)) { vm.cameraUnavailable(it) }
         }
     }
     val progress = (session.currentFragment + 1f) / session.exercise.fragments.size.coerceAtLeast(1)
@@ -864,7 +860,7 @@ private fun BoxScope.DecisionStage(vm: DictaViewModel) {
     }
 }
 
-@Composable
+/* OCR/photo verification was removed from the finished app.
 private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: CameraCoordinator) {
     val analysis = state.ocrAnalysis
     val capturedPhotoState = remember(state.session?.id) { mutableStateOf<Bitmap?>(null) }
@@ -1032,6 +1028,7 @@ private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: Cam
         }
     }
 }
+*/
 
 @Composable
 private fun SummaryScreen(state: DictaUiState, vm: DictaViewModel) {
@@ -1240,7 +1237,6 @@ private fun ErrorScreen(state: DictaUiState, vm: DictaViewModel) {
 @Composable
 private fun CameraPreview(
     coordinator: CameraCoordinator,
-    mode: CameraMode,
     modifier: Modifier,
     onError: (String) -> Unit = {},
 ) {
@@ -1256,9 +1252,9 @@ private fun CameraPreview(
         modifier = modifier,
     )
     val preview = previewState.value
-    DisposableEffect(mode, preview, lifecycleOwner) {
+    DisposableEffect(preview, lifecycleOwner) {
         if (preview != null) {
-            runCatching { coordinator.attachPreview(preview, lifecycleOwner, mode) }
+            runCatching { coordinator.attachPreview(preview, lifecycleOwner) }
                 .onFailure { onError("La caméra n’est pas disponible. Vous pouvez continuer en mode manuel.") }
         }
         onDispose { coordinator.detach() }

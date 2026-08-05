@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import {
   calculateScore,
-  countScoringWords,
   getDictation,
   getLevel,
   getScoreReward,
@@ -20,11 +19,6 @@ import {
   type AttentionDetector,
   type AttentionState,
 } from "./lib/vision";
-import SpellingCheckModal from "./components/SpellingCheckModal";
-import { compareOcrToReference } from "./lib/ocr/compare-reference";
-import { recognizeHandwrittenText, type HandwritingOcrResult } from "./lib/ocr/trocr";
-import type { OcrComparisonResult } from "./lib/ocr/types";
-import { checkFrenchSpelling, type FrenchSpellingResult } from "./lib/spelling/french";
 
 type Screen = "setup" | "placement" | "calibration-screen" | "session" | "summary";
 type SessionPhase = "memorizing" | "decision";
@@ -71,34 +65,6 @@ interface StoredDictationProgress {
   index: number;
   cursors: Record<PrimaryLevel, number>;
   lettersPerFragment: number;
-}
-
-interface PendingScore {
-  score: number;
-  entry: LeaderboardEntry;
-  previousBest: number;
-  elapsedMs: number;
-}
-
-interface SpellingVerification {
-  ocr: HandwritingOcrResult;
-  comparison: OcrComparisonResult;
-  spelling: FrenchSpellingResult;
-}
-
-function normalizeScoreWord(value: string): string {
-  return value.normalize("NFC").toLocaleLowerCase("fr-FR");
-}
-
-function countVerificationFaults(comparison: OcrComparisonResult, spelling: FrenchSpellingResult): number {
-  const wordMismatches = comparison.wordDiffs.filter((diff) => diff.kind !== "equal");
-  const recognizedMismatchWords = new Set(
-    wordMismatches
-      .map((diff) => normalizeScoreWord(diff.recognized))
-      .filter(Boolean),
-  );
-  const additionalSpellingIssues = spelling.issues.filter((issue) => !recognizedMismatchWords.has(normalizeScoreWord(issue.word)));
-  return wordMismatches.length + additionalSpellingIssues.length;
 }
 
 function subscribeToDictationProgress(listener: () => void) {
@@ -269,9 +235,6 @@ export function DictaApp() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(readStoredLeaderboard);
   const [currentScoreId, setCurrentScoreId] = useState<string | null>(null);
   const [isNewBestScore, setIsNewBestScore] = useState(false);
-  const [pendingScore, setPendingScore] = useState<PendingScore | null>(null);
-  const [spellingVerification, setSpellingVerification] = useState<SpellingVerification | null>(null);
-  const [isSpellingCheckOpen, setIsSpellingCheckOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const detectorRef = useRef<AttentionDetector | null>(null);
@@ -284,7 +247,6 @@ export function DictaApp() {
   const autoHideBlockedUntilRef = useRef(0);
   const sessionStartedAtRef = useRef<number | null>(null);
   const calibrationReadConfirmedRef = useRef(false);
-  const spellingCaptureRequestRef = useRef(0);
 
   useEffect(() => {
     screenRef.current = screen;
@@ -586,79 +548,28 @@ export function DictaApp() {
 
   const finishSession = () => {
     const elapsedMs = sessionStartedAtRef.current === null ? 1000 : Date.now() - sessionStartedAtRef.current;
-    const score = 0;
+    const score = calculateScore(text, elapsedMs, totalReviews, {
+      speedReferenceLettersPerSecond: getLevel(selectedLevel).referenceSpeedSignsPerMinute / 60,
+    });
     const entry: LeaderboardEntry = {
       id: `${Date.now()}-${leaderboard.length}`,
       score,
       createdAt: Date.now(),
     };
     const previousBest = leaderboard[0]?.score ?? 0;
-    setPendingScore({ score, entry, previousBest, elapsedMs });
-    setSummaryScore(null);
-    setCanRevealScore(false);
-    setSpellingVerification(null);
-    setIsSpellingCheckOpen(false);
-    setCurrentScoreId(null);
-    setIsNewBestScore(false);
+    const nextLeaderboard = sortLeaderboard([...leaderboard, entry]);
+    setLeaderboard(nextLeaderboard);
+    persistLeaderboard(nextLeaderboard);
+    setSummaryScore(score);
+    setCanRevealScore(true);
+    setCurrentScoreId(entry.id);
+    setIsNewBestScore(score > previousBest);
     setRevealedScore(0);
     setIsScoreRevealComplete(false);
     setIsRewardFeatured(false);
     sessionStartedAtRef.current = null;
     stopCamera();
     setScreen("summary");
-  };
-
-  const handleSpellingCapture = async (image: Blob, canvas: HTMLCanvasElement) => {
-    if (!pendingScore) throw new Error("Aucun score en attente de vérification.");
-    const requestId = spellingCaptureRequestRef.current + 1;
-    spellingCaptureRequestRef.current = requestId;
-    setSpellingVerification(null);
-    const ocr = await recognizeHandwrittenText(image, canvas);
-    const comparison = compareOcrToReference(text, {
-      text: ocr.text,
-      confidence: ocr.confidence,
-      tokens: ocr.tokens,
-    });
-    const spelling = await checkFrenchSpelling(ocr.text, { ignoredWords: [text] });
-    if (requestId !== spellingCaptureRequestRef.current) return;
-    const score = calculateScore(text, pendingScore.elapsedMs, totalReviews, {
-      spellingFaults: countVerificationFaults(comparison, spelling),
-      wordCount: countScoringWords(text),
-      ocrConfidence: comparison.confidence,
-      speedReferenceLettersPerSecond: getLevel(selectedLevel).referenceSpeedSignsPerMinute / 60,
-    });
-    setPendingScore((current) => current
-      ? { ...current, score, entry: { ...current.entry, score } }
-      : current);
-    setSummaryScore(score);
-    setSpellingVerification({ ocr, comparison, spelling });
-    setIsSpellingCheckOpen(false);
-  };
-
-  const openSpellingCheck = () => {
-    spellingCaptureRequestRef.current += 1;
-    setSpellingVerification(null);
-    setIsSpellingCheckOpen(true);
-  };
-
-  const closeSpellingCheck = () => {
-    spellingCaptureRequestRef.current += 1;
-    setIsSpellingCheckOpen(false);
-  };
-
-  const retrySpellingCheck = () => {
-    spellingCaptureRequestRef.current += 1;
-    setSpellingVerification(null);
-  };
-
-  const revealScore = () => {
-    if (!pendingScore || canRevealScore) return;
-    const nextLeaderboard = sortLeaderboard([...leaderboard, pendingScore.entry]);
-    setLeaderboard(nextLeaderboard);
-    persistLeaderboard(nextLeaderboard);
-    setCurrentScoreId(pendingScore.entry.id);
-    setIsNewBestScore(pendingScore.entry.score > pendingScore.previousBest);
-    setCanRevealScore(true);
   };
 
   const next = () => {
@@ -686,9 +597,6 @@ export function DictaApp() {
     setIsRewardFeatured(false);
     setCurrentScoreId(null);
     setIsNewBestScore(false);
-    setPendingScore(null);
-    setSpellingVerification(null);
-    setIsSpellingCheckOpen(false);
     calibrationReadConfirmedRef.current = false;
     sessionStartedAtRef.current = null;
   };
@@ -903,7 +811,7 @@ export function DictaApp() {
           )}
           <div className="hero"><h1>Bravo, c’est terminé !</h1></div>
           <div className="card stage-card summary-card" data-score-revealed={canRevealScore ? "true" : "false"}>
-            {!canRevealScore && (
+            {/*
               <div className="score-gate" aria-live="polite">
                 <div className="eyebrow">Dernière vérification</div>
                 <h2>Vérifie l&apos;orthographe de ta copie</h2>
@@ -940,7 +848,7 @@ export function DictaApp() {
                   <button className="primary-button" type="button" onClick={revealScore}>Révéler le score</button>
                 )}
               </div>
-            )}
+            */}
             <div className="score-reveal" aria-label={`Score ${revealedScore} sur ${MAX_SCORE}`}>
               <div className={`summary-score ${isNewBestScore ? "summary-score-record" : ""}`} aria-live="polite">{revealedScore}</div>
               <div className="muted">{isNewBestScore ? "Nouveau record !" : "score sur 100"}</div>
@@ -996,14 +904,6 @@ export function DictaApp() {
             <button className="primary-button" onClick={prepareNextDictation}>Préparer le challenge suivant</button>
           </div>
         </section>
-      )}
-
-      {isSpellingCheckOpen && pendingScore && (
-        <SpellingCheckModal
-          onCapture={handleSpellingCapture}
-          onClose={closeSpellingCheck}
-          onRetry={retrySpellingCheck}
-        />
       )}
 
       {toast && <div className="toast" role="status">{toast}</div>}

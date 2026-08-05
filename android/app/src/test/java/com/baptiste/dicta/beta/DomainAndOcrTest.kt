@@ -23,16 +23,12 @@ import com.baptiste.dicta.beta.domain.reduceSession
 import com.baptiste.dicta.beta.domain.rewardFor
 import com.baptiste.dicta.beta.domain.splitTextIntoFragmentDetails
 import com.baptiste.dicta.beta.domain.splitTextIntoFragments
-import com.baptiste.dicta.beta.ocr.ComparisonStatus
-import com.baptiste.dicta.beta.ocr.OcrResult
-import com.baptiste.dicta.beta.ocr.compareOcrToReference
-import com.baptiste.dicta.beta.ocr.normalizeOcr
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class DomainAndOcrTest {
+class DomainTest {
     @Test
     fun corpusIncludesOrderedLaFontaineChallengesAndLevelLabels() {
         assertEquals(
@@ -135,20 +131,14 @@ class DomainAndOcrTest {
     @Test
     fun scoreUsesTheSameMultiFactorFormulaAsTheWebDomain() {
         val perfect = ScoreOptions(
-            spellingFaults = 0,
-            wordCount = 3,
-            ocrConfidence = 0.91,
             speedReferenceLettersPerSecond = 2.0,
         )
 
         assertEquals(100, calculateScore("Le chat dort", 5_000L, 0, perfect))
-        assertEquals(88, calculateScore("Le chat dort", 5_000L, 0, perfect.copy(spellingFaults = 1)))
         assertEquals(82, calculateScore("Le chat dort", 5_000L, 1, perfect))
-        assertEquals(99, calculateScore("Le chat dort", 10_000L, 0, perfect))
-        assertEquals(58, calculateScore("Le chat dort", 5_000L, 0, perfect.copy(spellingFaults = 3)))
+        assertEquals(98, calculateScore("Le chat dort", 10_000L, 0, perfect))
         assertEquals(0, calculateScore("123 !", 1_000L, 0, perfect))
 
-        // The compatibility overload uses neutral OCR/fault values until the scan is available.
         assertEquals(98, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 0))
         assertEquals(78, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 1))
         assertEquals(63, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 2))
@@ -163,18 +153,14 @@ class DomainAndOcrTest {
             text = "a".repeat(250),
             elapsedMs = 83_333L,
             options = ScoreOptions(
-                spellingFaults = 0,
-                wordCount = 25,
-                ocrConfidence = 1.0,
                 speedReferenceLettersPerSecond = 2.0,
             ),
         )
 
-        assertEquals(112.0, result.rawScore, 0.000_001)
+        assertEquals(111.0, result.rawScore, 0.000_001)
         assertEquals(100, result.score)
         assertEquals(5.0, result.lengthBonus, 0.0)
         assertEquals(6.0, result.speedAdjustment, 0.0)
-        assertEquals(1.0, result.confidenceAdjustment, 0.0)
     }
 
     @Test
@@ -183,9 +169,6 @@ class DomainAndOcrTest {
             text = "abcdefghij",
             elapsedMs = 6_667L,
             options = ScoreOptions(
-                spellingFaults = 0,
-                wordCount = 1,
-                ocrConfidence = 0.75,
                 speedReferenceLettersPerSecond = 2.0,
             ),
         )
@@ -195,28 +178,20 @@ class DomainAndOcrTest {
     }
 
     @Test
-    fun reviewsOutweighFaultsSpeedAndOcrConfidence() {
+    fun reviewsAndSpeedAffectTheScore() {
         val text = "a".repeat(50)
         val options = ScoreOptions(
-            spellingFaults = 0,
-            wordCount = 5,
-            ocrConfidence = 0.75,
             speedReferenceLettersPerSecond = 2.0,
         )
         val baseline = calculateScoreBreakdown(text, 33_333L, 0, options)
         val oneReview = calculateScoreBreakdown(text, 33_333L, 1, options)
-        val oneFault = calculateScoreBreakdown(text, 33_333L, 0, options.copy(spellingFaults = 1))
         val slowest = calculateScoreBreakdown(text, Long.MAX_VALUE, 0, options)
-        val unreadable = calculateScoreBreakdown(text, 33_333L, 0, options.copy(ocrConfidence = 0.0))
 
         assertEquals(100.0, baseline.rawScore, 0.001)
-        assertTrue(baseline.rawScore - oneReview.rawScore > baseline.rawScore - oneFault.rawScore)
-        assertTrue(baseline.rawScore - oneFault.rawScore > baseline.rawScore - slowest.rawScore)
-        assertTrue(baseline.rawScore - slowest.rawScore > baseline.rawScore - unreadable.rawScore)
+        assertTrue(baseline.rawScore > oneReview.rawScore)
+        assertTrue(baseline.rawScore > slowest.rawScore)
         assertEquals(0.8, oneReview.reviewMultiplier, 0.0)
-        assertEquals(9.0, oneFault.faultPenalty, 0.0)
         assertEquals(-6.0, slowest.speedAdjustment, 0.000_001)
-        assertEquals(-3.0, unreadable.confidenceAdjustment, 0.0)
     }
 
     @Test
@@ -226,9 +201,6 @@ class DomainAndOcrTest {
             elapsedMs = 1_000L,
             reviewCount = -4,
             options = ScoreOptions(
-                spellingFaults = Int.MAX_VALUE,
-                wordCount = 0,
-                ocrConfidence = Double.NaN,
                 speedReferenceLettersPerSecond = Double.NaN,
             ),
         )
@@ -236,7 +208,6 @@ class DomainAndOcrTest {
         assertTrue(result.rawScore.isFinite())
         assertTrue(result.score in 0..100)
         assertEquals(1.0, result.reviewMultiplier, 0.0)
-        assertEquals(-3.0, result.confidenceAdjustment, 0.0)
     }
 
     @Test
@@ -315,7 +286,7 @@ class DomainAndOcrTest {
         assertEquals(1, wrapped.cursors.getValue(SchoolLevel.CP))
     }
 
-    @Test
+    /* OCR comparison tests removed with the OCR feature.
     fun ocrComparisonNormalizesCaseAndReportsDifferences() {
         assertEquals("l'école", normalizeOcr("  L’ÉCOLE  "))
         val exact = compareOcrToReference("L'école", OcrResult("l'école", 0.9))
@@ -325,4 +296,5 @@ class DomainAndOcrTest {
         assertFalse(mismatch.matches)
         assertEquals(2, mismatch.differences.size)
     }
+    */
 }

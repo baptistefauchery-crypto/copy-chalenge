@@ -8,21 +8,15 @@ export const LEADERBOARD_STORAGE_KEY = "copy-challenge-leaderboard-v1";
 export const MAX_SCORE = 100;
 const LEADERBOARD_LIMIT = 5;
 export const SCORE_BASE = 100;
-export const MAX_FAULT_PENALTY = 45;
 export const MAX_SPEED_ADJUSTMENT = 6;
 export const MAX_LENGTH_BONUS = 5;
 export const MIN_LENGTH_FOR_BONUS = 50;
 export const LENGTH_FOR_MAX_BONUS = 250;
 export const EXPECTED_SPEED_RATIO = 0.75;
-export const EXPECTED_OCR_CONFIDENCE = 0.75;
-export const OCR_CONFIDENCE_SCALE = 4;
 export const DEFAULT_SPEED_REFERENCE_LETTERS_PER_SECOND = 2;
 const REVIEW_SCORE_MULTIPLIER = 0.8;
 
 export interface ScoreCalculationOptions {
-  spellingFaults: number;
-  wordCount: number;
-  ocrConfidence: number;
   speedReferenceLettersPerSecond: number;
 }
 
@@ -30,10 +24,8 @@ export interface ScoreBreakdown {
   score: number;
   rawScore: number;
   baseScore: number;
-  faultPenalty: number;
   speedAdjustment: number;
   lengthBonus: number;
-  confidenceAdjustment: number;
   reviewMultiplier: number;
 }
 
@@ -56,7 +48,7 @@ export function calculateScore(
   text: string,
   elapsedMs: number,
   reviewCount = 0,
-  options: ScoreCalculationOptions,
+  options: ScoreCalculationOptions = { speedReferenceLettersPerSecond: DEFAULT_SPEED_REFERENCE_LETTERS_PER_SECOND },
 ): number {
   return calculateScoreBreakdown(text, elapsedMs, reviewCount, options).score;
 }
@@ -64,12 +56,10 @@ export function calculateScore(
 /**
  * Calculates a deliberately readable score before capping it for display.
  *
- * - 100 points is the neutral target: no faults, 75% of the reference speed,
- *   and 75% OCR confidence. Perfect speed/readability are therefore not needed.
+ * - 100 points is the neutral target at 75% of the reference speed.
  * - Reviews have the largest normal impact (20% compounding penalty each).
- * - Faults remove up to 45 points, proportionally to the expected word count.
  * - Speed changes at most +/-6 points and is based on letters per second.
- * - Long texts add at most 5 points; OCR confidence changes -3 to +1 point.
+ * - Long texts add at most 5 points.
  *
  * A flawless long and fast dictation can reach 112 raw points. `score` is the
  * rounded 0..100 value used by the UI, while `rawScore` remains available for
@@ -87,24 +77,14 @@ export function calculateScoreBreakdown(
       score: 0,
       rawScore: 0,
       baseScore: SCORE_BASE,
-      faultPenalty: 0,
       speedAdjustment: 0,
       lengthBonus: 0,
-      confidenceAdjustment: 0,
       reviewMultiplier: 1,
     };
   }
 
   const elapsedSeconds = Math.max(Number.isFinite(elapsedMs) ? elapsedMs / 1000 : 1, 1);
   const reviews = Number.isFinite(reviewCount) ? Math.max(0, Math.floor(reviewCount)) : 0;
-  const wordCount = Math.max(1, Number.isFinite(options.wordCount) ? Math.round(options.wordCount) : countScoringWords(text));
-  const spellingFaults = Number.isFinite(options.spellingFaults)
-    ? Math.max(0, Math.round(options.spellingFaults))
-    : wordCount;
-  const faultRate = clampUnit(spellingFaults / wordCount);
-  const faultPenalty = MAX_FAULT_PENALTY * faultRate;
-  const confidence = clampUnit(options.ocrConfidence);
-  const confidenceAdjustment = OCR_CONFIDENCE_SCALE * (confidence - EXPECTED_OCR_CONFIDENCE);
   const speedReference = Number.isFinite(options.speedReferenceLettersPerSecond)
     ? Math.max(options.speedReferenceLettersPerSecond, Number.EPSILON)
     : DEFAULT_SPEED_REFERENCE_LETTERS_PER_SECOND;
@@ -117,17 +97,15 @@ export function calculateScoreBreakdown(
   const reviewMultiplier = Math.pow(REVIEW_SCORE_MULTIPLIER, reviews);
   const rawScore = Math.max(
     0,
-    SCORE_BASE - faultPenalty + speedAdjustment + lengthBonus + confidenceAdjustment,
+    SCORE_BASE + speedAdjustment + lengthBonus,
   ) * reviewMultiplier;
 
   return {
     score: Math.min(MAX_SCORE, Math.max(0, Math.round(rawScore))),
     rawScore,
     baseScore: SCORE_BASE,
-    faultPenalty,
     speedAdjustment,
     lengthBonus,
-    confidenceAdjustment,
     reviewMultiplier,
   };
 }

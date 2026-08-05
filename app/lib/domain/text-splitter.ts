@@ -95,7 +95,7 @@ function splitLineByLetters(line: string, targetLetters: number): string[] {
 
 /**
  * Produces fragment text plus verse-boundary metadata. The marker is data, not
- * punctuation: OCR and spelling comparisons continue to receive faithful text.
+ * punctuation so the displayed text remains faithful to the source.
  */
 export function splitTextIntoFragmentDetails(
   text: string,

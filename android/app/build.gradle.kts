@@ -92,7 +92,6 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.2.3")
     implementation("androidx.camera:camera-view:1.2.3")
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.18.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     testImplementation("junit:junit:4.13.2")

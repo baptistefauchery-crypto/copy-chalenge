@@ -12,7 +12,7 @@ data class DictationDefinition(
 
 data class TextFragment(
     val text: String,
-    /** UI metadata for a colored bar/cue; never appended to the OCR reference. */
+    /** UI metadata for a colored bar/cue. */
     val endsVerse: Boolean,
 )
 
@@ -106,7 +106,6 @@ enum class SchoolLevel(
     val label: String,
     val cycle: String,
     val recommendedLetters: Int,
-    /** Kept for source compatibility with the optional OCR flow. */
     val referenceLettersPerSecond: Double,
     val dictations: List<DictationDefinition>,
 ) {

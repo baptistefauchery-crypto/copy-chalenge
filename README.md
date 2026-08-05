@@ -14,8 +14,7 @@ revoir les mots ou de continuer.
 2. Lire et mémoriser le fragment affiché.
 3. Regarder le cahier pour écrire le fragment.
 4. Choisir **Revoir** ou **Continuer**.
-5. Photographier la feuille avec le bouton **Vérifier l'orthographe**.
-6. Comparer le texte reconnu à la référence et révéler le score.
+5. Afficher le score et le classement à la fin de la séance.
 
 La caméra et MediaPipe distinguent localement le regard vers l’écran du regard
 vers le cahier. Un mode manuel reste disponible si la caméra n’est pas utilisée.
@@ -29,9 +28,8 @@ vers le cahier. Un mode manuel reste disponible si la caméra n’est pas utilis
 - calibration courte de la lecture à l’écran
 - masquage du fragment lorsque l’élève regarde son cahier
 - mode manuel de secours
-- scores et relectures conservés localement
-- OCR manuscrit local PP-OCRv6 small et dictionnaire français hors ligne
-- aucune vidéo enregistrée ou envoyée
+- score et relectures conservés localement
+- aucune photo ou vidéo enregistrée ou envoyée
 
 ## Installation sur Android
 
@@ -51,7 +49,7 @@ npm run dev
 ```
 
 Ouvrir ensuite `http://localhost:3000`. L’accès caméra depuis un autre appareil
-nécessite une origine HTTPS.
+n’est possible que depuis une origine HTTPS.
 
 ## Vérification
 
@@ -69,12 +67,9 @@ puis vérifie le rendu HTML serveur.
 
 [Télécharger directement la dernière bêta Android (APK)](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.7/copy-challenge-beta.apk)
 
-Android peut demander d’autoriser cette installation initiale depuis le navigateur. Les versions suivantes sont téléchargées et vérifiées directement par Copy Challenge, puis installées comme mises à jour sans créer de fichiers APK en double.
-
 Le module `android/` contient l’application native installable : caméra
-CameraX/MediaPipe pour le regard, photo arrière confirmée avant reconnaissance hors ligne, fables de
-La Fontaine, score multifactoriel, récompenses et classement local. La
-procédure de build et d’installation est documentée dans
+CameraX/MediaPipe pour le regard, fables de La Fontaine, score, récompenses et
+classement local. La procédure de build et d’installation est documentée dans
 [`android/README.md`](android/README.md).
 
 ## Structure principale
