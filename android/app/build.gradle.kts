@@ -1,25 +1,19 @@
-import org.gradle.api.tasks.compile.JavaCompile
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
 
-// The beta module is Kotlin-only; AGP still creates an empty javac task.
-// JDK 11 on this managed Windows image fails while closing its empty archive.
-tasks.withType<JavaCompile>().configureEach { enabled = false }
-
 android {
     namespace = "com.baptiste.dicta.beta"
-    compileSdk = 33
-    buildToolsVersion = "30.0.3"
+    compileSdk = 35
+    buildToolsVersion = "35.0.0"
 
     defaultConfig {
         applicationId = "com.baptiste.dicta.beta"
         minSdk = 26
-        targetSdk = 33
-        versionCode = 7
-        versionName = "0.1.0-beta.7"
+        targetSdk = 35
+        versionCode = 8
+        versionName = "0.1.0-beta.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -28,6 +22,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -55,25 +50,27 @@ android {
     buildTypes.getByName("debug") {
         signingConfig = signingConfigs.getByName("betaDebugLocal")
     }
+    buildTypes.getByName("release") {
+        signingConfig = signingConfigs.getByName("betaDebugLocal")
+    }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "11" }
+    kotlinOptions { jvmTarget = "17" }
 
     buildFeatures { compose = true; buildConfig = true }
-    composeOptions { kotlinCompilerExtensionVersion = "1.4.8" }
-    packagingOptions {
+    composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
+    lint {
+        // API 35 and these dependency lines are the tested beta baseline.
+        // Upgrades are handled explicitly instead of being inferred from lint.
+        disable += setOf("GradleDependency", "ObsoleteSdkInt", "OldTargetApi")
+    }
+    packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
         resources.excludes += "**/*.proto"
     }
-}
-
-// Compose 1.5 pulls emoji2 1.4, whose metadata requires API 34. The beta
-// toolchain intentionally compiles with API 33, so keep the compatible line.
-configurations.all {
-    resolutionStrategy.force("androidx.emoji2:emoji2:1.3.0")
 }
 
 dependencies {

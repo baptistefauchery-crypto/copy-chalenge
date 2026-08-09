@@ -1,20 +1,26 @@
 /* Copy Challenge service worker — bump this value whenever the offline shell changes. */
-const CACHE_VERSION = "copy-challenge-v6";
+const CACHE_VERSION = "copy-challenge-v7";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
+const GENERATED_ASSETS = ["/__BUILD_ASSETS__"];
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/icon-maskable-512.png",
+  ...GENERATED_ASSETS.filter((asset) => asset !== "/__BUILD_ASSETS__"),
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(SHELL_CACHE)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then((cache) => Promise.all(APP_SHELL.map(async (asset) => {
+        const response = await fetch(asset, { cache: "reload" });
+        if (!response.ok) throw new Error(`Unable to cache ${asset}`);
+        await cache.put(asset, response);
+      })))
       .then(() => self.skipWaiting()),
   );
 });

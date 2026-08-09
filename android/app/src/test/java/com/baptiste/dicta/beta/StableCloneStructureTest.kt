@@ -86,16 +86,14 @@ class StableCloneStructureTest {
             "SessionEvent.CalibrationCompleted",
             "SessionEvent.Start(now)",
             "screen = AppScreen.SUMMARY",
-            "speedReferenceLettersPerSecond = session.exercise.level.referenceLettersPerSecond",
-            "hasSeenScreenInFragment",
+            "reviewCount = session.totalReviews",
+            "!reading.faceDetected || reading.state == AttentionState.NOTEBOOK",
             "now - lastCameraReadingAt > 1_200L",
             "autoHideBlockedUntil = now + 2_000L",
-            "reading.faceDetected &&",
-            "reading.state == AttentionState.NOTEBOOK",
+            "reduceSession(session, SessionEvent.LookedAway)",
         ).forEach { expected -> assertTrue("Missing stable flow contract: $expected", viewModel.contains(expected)) }
 
         assertFalse(viewModel.contains("OnnxOcrEngine"))
-        assertFalse(viewModel.contains("!reading.faceDetected || reading.state == AttentionState.NOTEBOOK"))
         assertFalse(viewModel.contains("finishWithoutOcr"))
     }
 

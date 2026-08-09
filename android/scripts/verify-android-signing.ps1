@@ -6,7 +6,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 if (-not $ApkPath) {
-    $ApkPath = Join-Path $PSScriptRoot "..\app\build\outputs\apk\beta\debug\app-beta-debug.apk"
+    $ApkPath = Join-Path $PSScriptRoot "..\app\build\outputs\apk\beta\release\app-beta-release.apk"
 }
 if (-not $ExpectedFingerprintPath) {
     $ExpectedFingerprintPath = Join-Path $PSScriptRoot "..\signing-cert-sha256.txt"

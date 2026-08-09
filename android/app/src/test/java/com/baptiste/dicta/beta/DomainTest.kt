@@ -129,21 +129,21 @@ class DomainTest {
     }
 
     @Test
-    fun scoreUsesTheSameMultiFactorFormulaAsTheWebDomain() {
+    fun scoreUsesTheSameLettersTimeAndReviewsFormulaAsTheWebDomain() {
         val perfect = ScoreOptions(
             speedReferenceLettersPerSecond = 2.0,
         )
 
         assertEquals(100, calculateScore("Le chat dort", 5_000L, 0, perfect))
-        assertEquals(82, calculateScore("Le chat dort", 5_000L, 1, perfect))
-        assertEquals(98, calculateScore("Le chat dort", 10_000L, 0, perfect))
+        assertEquals(64, calculateScore("Le chat dort", 10_000L, 1, perfect))
+        assertEquals(80, calculateScore("Le chat dort", 10_000L, 0, perfect))
         assertEquals(0, calculateScore("123 !", 1_000L, 0, perfect))
 
-        assertEquals(98, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 0))
-        assertEquals(78, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 1))
-        assertEquals(63, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 2))
+        assertEquals(80, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 0))
+        assertEquals(64, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 1))
+        assertEquals(51, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = 2))
         assertEquals(100, calculateScore("abcd", elapsedMs = 0L, reviewCount = 0))
-        assertEquals(98, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = -3))
+        assertEquals(80, calculateScore("abcd", elapsedMs = 4_000L, reviewCount = -3))
         assertEquals(0, calculateScore("123 !", elapsedMs = 1_000L, reviewCount = 0))
     }
 
@@ -151,23 +151,24 @@ class DomainTest {
     fun rawScoreCanExceedOneHundredBeforeTheDisplayCap() {
         val result = calculateScoreBreakdown(
             text = "a".repeat(250),
-            elapsedMs = 83_333L,
+            elapsedMs = 100_000L,
             options = ScoreOptions(
                 speedReferenceLettersPerSecond = 2.0,
             ),
         )
 
-        assertEquals(111.0, result.rawScore, 0.000_001)
+        assertEquals(200.0, result.rawScore, 0.000_001)
         assertEquals(100, result.score)
-        assertEquals(5.0, result.lengthBonus, 0.0)
-        assertEquals(6.0, result.speedAdjustment, 0.0)
+        assertEquals(200.0, result.baseScore, 0.0)
+        assertEquals(0.0, result.lengthBonus, 0.0)
+        assertEquals(0.0, result.speedAdjustment, 0.0)
     }
 
     @Test
     fun scoreCanReachOneHundredWithoutPerfectSpeedOrReadability() {
         val result = calculateScoreBreakdown(
             text = "abcdefghij",
-            elapsedMs = 6_667L,
+            elapsedMs = 8_000L,
             options = ScoreOptions(
                 speedReferenceLettersPerSecond = 2.0,
             ),
@@ -178,20 +179,22 @@ class DomainTest {
     }
 
     @Test
-    fun reviewsAndSpeedAffectTheScore() {
+    fun reviewsApplyACompoundingPenalty() {
         val text = "a".repeat(50)
         val options = ScoreOptions(
             speedReferenceLettersPerSecond = 2.0,
         )
-        val baseline = calculateScoreBreakdown(text, 33_333L, 0, options)
-        val oneReview = calculateScoreBreakdown(text, 33_333L, 1, options)
+        val baseline = calculateScoreBreakdown(text, 50_000L, 0, options)
+        val oneReview = calculateScoreBreakdown(text, 50_000L, 1, options)
+        val twoReviews = calculateScoreBreakdown(text, 50_000L, 2, options)
         val slowest = calculateScoreBreakdown(text, Long.MAX_VALUE, 0, options)
 
-        assertEquals(100.0, baseline.rawScore, 0.001)
+        assertEquals(80.0, baseline.rawScore, 0.001)
         assertTrue(baseline.rawScore > oneReview.rawScore)
         assertTrue(baseline.rawScore > slowest.rawScore)
         assertEquals(0.8, oneReview.reviewMultiplier, 0.0)
-        assertEquals(-6.0, slowest.speedAdjustment, 0.000_001)
+        assertEquals(64.0, oneReview.rawScore, 0.000_001)
+        assertEquals(51.2, twoReviews.rawScore, 0.000_001)
     }
 
     @Test
@@ -286,15 +289,4 @@ class DomainTest {
         assertEquals(1, wrapped.cursors.getValue(SchoolLevel.CP))
     }
 
-    /* OCR comparison tests removed with the OCR feature.
-    fun ocrComparisonNormalizesCaseAndReportsDifferences() {
-        assertEquals("l'école", normalizeOcr("  L’ÉCOLE  "))
-        val exact = compareOcrToReference("L'école", OcrResult("l'école", 0.9))
-        assertTrue(exact.matches)
-        assertEquals(ComparisonStatus.MATCH, exact.status)
-        val mismatch = compareOcrToReference("L'école", OcrResult("La classe", 0.9))
-        assertFalse(mismatch.matches)
-        assertEquals(2, mismatch.differences.size)
-    }
-    */
 }

@@ -47,7 +47,7 @@ test("ships the Android PWA and local vision assets", async () => {
   ]);
 
   const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /CACHE_VERSION = "copy-challenge-v6"/);
+  assert.match(serviceWorker, /CACHE_VERSION = "copy-challenge-v7"/);
   assert.doesNotMatch(serviceWorker, /dictionaries|ocr/i);
 
   const pwaProvider = await readFile(new URL("../app/components/pwa/PwaProvider.tsx", import.meta.url), "utf8");
@@ -57,6 +57,8 @@ test("ships the Android PWA and local vision assets", async () => {
   const globals = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(pwaProvider, /display-mode: standalone/);
   assert.match(pwaProvider, /deferredInstallEvent/);
+  assert.match(pwaProvider, /installEvent !== null && !installDismissed/);
+  assert.match(pwaProvider, /Masquer la proposition d’installation/);
   assert.match(offlineStatus, /OFFLINE_NOTICE_DURATION_MS = 4000/);
   assert.match(dictaApp, /calculateScore/);
   const activeDictaApp = dictaApp.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -65,4 +67,17 @@ test("ships the Android PWA and local vision assets", async () => {
   assert.match(scoring, /MAX_SCORE = 100/);
   assert.doesNotMatch(scoring, /OCR|spellingFaults|ocrConfidence/);
   assert.doesNotMatch(globals, /score-gate|spelling-check|spelling-result/);
+});
+
+test("the production shell is generated for complete offline use and sends security headers", async () => {
+  const serviceWorker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+  const sitesPlugin = await readFile(new URL("../build/sites-vite-plugin.ts", import.meta.url), "utf8");
+  const worker = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
+  assert.match(serviceWorker, /copy-challenge-v7/);
+  assert.match(serviceWorker, /GENERATED_ASSETS/);
+  assert.match(sitesPlugin, /listFiles\(clientDirectory\)/);
+  assert.match(sitesPlugin, /asset !== "\/_headers"/);
+  assert.match(worker, /Content-Security-Policy/);
+  assert.match(worker, /Permissions-Policy/);
+  assert.match(worker, /Strict-Transport-Security/);
 });

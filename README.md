@@ -28,7 +28,7 @@ vers le cahier. Un mode manuel reste disponible si la caméra n’est pas utilis
 - calibration courte de la lecture à l’écran
 - masquage du fragment lorsque l’élève regarde son cahier
 - mode manuel de secours
-- score et relectures conservés localement
+- scores et progression conservés localement
 - aucune photo ou vidéo enregistrée ou envoyée
 
 ## Installation sur Android
@@ -65,7 +65,7 @@ puis vérifie le rendu HTML serveur.
 
 ### Installer la bêta Android
 
-[Télécharger directement la dernière bêta Android (APK)](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.7/copy-challenge-beta.apk)
+[Télécharger directement la dernière bêta Android (APK)](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.8/copy-challenge-beta.apk)
 
 Le module `android/` contient l’application native installable : caméra
 CameraX/MediaPipe pour le regard, fables de La Fontaine, score, récompenses et

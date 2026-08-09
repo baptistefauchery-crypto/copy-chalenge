@@ -20,15 +20,9 @@ data class ScoreReward(val stars: Int, val badge: Badge)
 enum class Badge { NONE, BRONZE, SILVER, GOLD, TROPHY }
 
 const val MAX_SCORE = 100
-const val SCORE_BASE = 100.0
-const val MAX_SPEED_ADJUSTMENT = 6.0
-const val MAX_LENGTH_BONUS = 5.0
-const val MIN_LENGTH_FOR_BONUS = 50
-const val LENGTH_FOR_MAX_BONUS = 250
-const val EXPECTED_SPEED_RATIO = 0.75
+const val SCORE_POINTS_PER_LETTER = 80.0
 const val DEFAULT_SPEED_REFERENCE_LETTERS_PER_SECOND = 2.0
 const val REVIEW_SCORE_MULTIPLIER = 0.8
-private const val MIN_SPEED_REFERENCE = 2.220446049250313e-16
 
 fun countScoringLetters(text: String): Int = text.count(Char::isLetter)
 
@@ -47,50 +41,33 @@ fun calculateScore(
 fun calculateScore(text: String, elapsedMs: Long, reviewCount: Int, options: ScoreOptions): Int =
     calculateScoreBreakdown(text, elapsedMs, reviewCount, options).score
 
-/** Shared score contract: time, length, and the number of reviews only. */
+/** Shared score contract: copied letters per second and rereads only. */
 fun calculateScoreBreakdown(
     text: String,
     elapsedMs: Long,
     reviewCount: Int = 0,
-    options: ScoreOptions,
+    @Suppress("UNUSED_PARAMETER") options: ScoreOptions,
 ): ScoreBreakdown {
     val letters = countScoringLetters(text)
     if (letters == 0) {
-        return ScoreBreakdown(0, 0.0, SCORE_BASE, 0.0, 0.0, 1.0)
+        return ScoreBreakdown(0, 0.0, 0.0, 0.0, 0.0, 1.0)
     }
 
     val elapsedSeconds = maxOf(1.0, elapsedMs / 1000.0)
     val reviews = maxOf(0, reviewCount)
-    val speedReference = if (options.speedReferenceLettersPerSecond.isFinite()) {
-        maxOf(options.speedReferenceLettersPerSecond, MIN_SPEED_REFERENCE)
-    } else {
-        DEFAULT_SPEED_REFERENCE_LETTERS_PER_SECOND
-    }
-    val lettersPerSecond = letters / elapsedSeconds
-    val speedRatio = lettersPerSecond / speedReference
-    val normalizedSpeed = clampSigned((speedRatio - EXPECTED_SPEED_RATIO) / EXPECTED_SPEED_RATIO)
-    val speedAdjustment = MAX_SPEED_ADJUSTMENT * normalizedSpeed
-    val lengthProgress = (letters - MIN_LENGTH_FOR_BONUS).toDouble() /
-        (LENGTH_FOR_MAX_BONUS - MIN_LENGTH_FOR_BONUS)
-    val lengthBonus = MAX_LENGTH_BONUS * clampUnit(lengthProgress)
     val reviewMultiplier = REVIEW_SCORE_MULTIPLIER.pow(reviews)
-    val rawScore = maxOf(0.0, SCORE_BASE + speedAdjustment + lengthBonus) * reviewMultiplier
+    val baseScore = letters * SCORE_POINTS_PER_LETTER / elapsedSeconds
+    val rawScore = baseScore * reviewMultiplier
 
     return ScoreBreakdown(
         score = rawScore.roundToInt().coerceIn(0, MAX_SCORE),
         rawScore = rawScore,
-        baseScore = SCORE_BASE,
-        speedAdjustment = speedAdjustment,
-        lengthBonus = lengthBonus,
+        baseScore = baseScore,
+        speedAdjustment = 0.0,
+        lengthBonus = 0.0,
         reviewMultiplier = reviewMultiplier,
     )
 }
-
-private fun clampUnit(value: Double): Double =
-    if (value.isFinite()) value.coerceIn(0.0, 1.0) else 0.0
-
-private fun clampSigned(value: Double): Double =
-    if (value.isFinite()) value.coerceIn(-1.0, 1.0) else -1.0
 
 fun rewardFor(score: Int): ScoreReward {
     val normalized = score.coerceIn(0, MAX_SCORE)

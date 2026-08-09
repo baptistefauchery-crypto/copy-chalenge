@@ -75,6 +75,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -300,7 +301,7 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
         ).intentSender
     }
     val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        if (Build.VERSION.SDK_INT < 26 || context.packageManager.canRequestPackageInstalls()) {
+        if (context.packageManager.canRequestPackageInstalls()) {
             installPermissionMessage = null
             vm.installDownloadedUpdate(installStatusIntentSender)
         } else {
@@ -326,7 +327,7 @@ private fun SetupScreen(state: DictaUiState, vm: DictaViewModel) {
         onDispose { runCatching { context.unregisterReceiver(installStatusReceiver) } }
     }
     val installUpdate = {
-        if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
+        if (!context.packageManager.canRequestPackageInstalls()) {
             installPermissionMessage = "Une autorisation Android est nécessaire une seule fois pour les mises à jour internes."
             installPermissionLauncher.launch(
                 Intent(
@@ -860,180 +861,11 @@ private fun BoxScope.DecisionStage(vm: DictaViewModel) {
     }
 }
 
-/* OCR/photo verification was removed from the finished app.
-private fun ScanScreen(state: DictaUiState, vm: DictaViewModel, coordinator: CameraCoordinator) {
-    val analysis = state.ocrAnalysis
-    val capturedPhotoState = remember(state.session?.id) { mutableStateOf<Bitmap?>(null) }
-    val acceptsCaptureResults = remember(state.session?.id) { mutableStateOf(true) }
-    val capturedPhoto = capturedPhotoState.value
-    var isTakingPhoto by remember(state.session?.id) { mutableStateOf(false) }
-
-    DisposableEffect(capturedPhotoState) {
-        acceptsCaptureResults.value = true
-        onDispose {
-            acceptsCaptureResults.value = false
-            capturedPhotoState.value?.takeUnless(Bitmap::isRecycled)?.recycle()
-            capturedPhotoState.value = null
-        }
-    }
-
-    AppColumn(onClose = vm::reset, scroll = true) {
-        Eyebrow("Vérification de la copie")
-        Text(
-            "Photographie ton texte",
-            color = Ink,
-            fontSize = 42.sp,
-            lineHeight = 43.sp,
-            fontWeight = FontWeight.Black,
-        )
-        Text(
-            "Cadre le début de la dictée et toute la phrase, puis prends une photo nette.",
-            color = Muted,
-            lineHeight = 21.sp,
-        )
-        Spacer(Modifier.height(14.dp))
-        Card(shape = CardShape, colors = CardDefaults.cardColors(containerColor = PaperStrong.copy(alpha = .94f))) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(.78f)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color(0xFF171627)),
-                ) {
-                    if (capturedPhoto != null) {
-                        Image(
-                            bitmap = capturedPhoto.asImageBitmap(),
-                            contentDescription = "Photo de la copie à vérifier",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        CameraPreview(coordinator, CameraMode.BACK, Modifier.fillMaxSize()) { vm.ocrCaptureFailed() }
-                    }
-                    if (state.ocrScanStage == OcrScanStage.READY && capturedPhoto == null) Canvas(Modifier.fillMaxSize()) {
-                        drawRect(Color.Black.copy(alpha = .12f))
-                        val guide = Rect(size.width * .07f, size.height * .12f, size.width * .93f, size.height * .88f)
-                        drawRoundRect(
-                            color = Color.White.copy(alpha = .96f),
-                            topLeft = guide.topLeft,
-                            size = guide.size,
-                            cornerRadius = CornerRadius(24f, 24f),
-                            style = Stroke(width = 5f),
-                        )
-                    }
-                    if (state.ocrScanStage == OcrScanStage.PROCESSING) {
-                        Box(
-                            Modifier.fillMaxSize().background(Ink.copy(alpha = .78f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("Analyse de la photo…", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                        }
-                    }
-                }
-
-                when (state.ocrScanStage) {
-                    OcrScanStage.READY -> {
-                        if (capturedPhoto == null) {
-                            Text(
-                                "Vérifie que la phrase est entièrement visible dans le cadre.",
-                                color = Muted,
-                                fontSize = 13.sp,
-                                lineHeight = 18.sp,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            PrimaryButton(
-                                text = if (isTakingPhoto) "Prise de photo…" else "Prendre la photo",
-                                enabled = !isTakingPhoto,
-                                onClick = {
-                                    isTakingPhoto = true
-                                    coordinator.capture(
-                                        onCaptured = { bitmap ->
-                                            if (!acceptsCaptureResults.value) {
-                                                bitmap.recycle()
-                                                return@capture
-                                            }
-                                            capturedPhotoState.value?.takeUnless(Bitmap::isRecycled)?.recycle()
-                                            capturedPhotoState.value = bitmap
-                                            isTakingPhoto = false
-                                        },
-                                        onError = {
-                                            isTakingPhoto = false
-                                            vm.ocrCaptureFailed()
-                                        },
-                                    )
-                                },
-                            )
-                        } else {
-                            Text(
-                                "Cette photo te convient-elle ?",
-                                color = Ink,
-                                fontWeight = FontWeight.ExtraBold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            PrimaryButton("Utiliser cette photo", onClick = {
-                                val photo = capturedPhotoState.value ?: return@PrimaryButton
-                                val analysisCopy = photo.copy(Bitmap.Config.ARGB_8888, false)
-                                vm.scanHandwriting(analysisCopy)
-                            })
-                            OutlinedButton(
-                                onClick = {
-                                    capturedPhotoState.value?.takeUnless(Bitmap::isRecycled)?.recycle()
-                                    capturedPhotoState.value = null
-                                },
-                                modifier = Modifier.fillMaxWidth().height(52.dp),
-                                shape = ButtonShape,
-                            ) {
-                                Text("Reprendre la photo", color = VioletDark, fontWeight = FontWeight.ExtraBold)
-                            }
-                        }
-                    }
-                    OcrScanStage.PROCESSING -> Unit
-                    OcrScanStage.ERROR -> {
-                        Text(state.ocrMessage ?: "La copie n’a pas pu être reconnue.", color = Coral, lineHeight = 20.sp, textAlign = TextAlign.Center)
-                        PrimaryButton("Reprendre une photo", onClick = {
-                            capturedPhotoState.value?.takeUnless(Bitmap::isRecycled)?.recycle()
-                            capturedPhotoState.value = null
-                            vm.retryOcrScan()
-                        })
-                    }
-                    OcrScanStage.REVIEW -> {
-                        val recognized = analysis?.selection?.result?.text.orEmpty()
-                        val confidence = analysis?.selection?.result?.confidence ?: 0.0
-                        val differences = analysis?.comparison?.differences.orEmpty()
-                        Surface(shape = RoundedCornerShape(18.dp), color = VioletSoft.copy(alpha = .72f)) {
-                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                Text(
-                                    if (differences.isEmpty()) "Le texte correspond à la dictée." else "${differences.size} différence${if (differences.size > 1) "s" else ""} détectée${if (differences.size > 1) "s" else ""}.",
-                                    color = Ink,
-                                    fontWeight = FontWeight.ExtraBold,
-                                )
-                                Text("Lisibilité estimée : ${(confidence * 100).toInt()} %", color = Muted, fontSize = 13.sp)
-                                Text("Texte reconnu : $recognized", color = Ink, fontSize = 13.sp, lineHeight = 18.sp)
-                            }
-                        }
-                        PrimaryButton("Afficher mon score", vm::showScoreAfterScan)
-                        TextButton(onClick = {
-                            capturedPhotoState.value?.takeUnless(Bitmap::isRecycled)?.recycle()
-                            capturedPhotoState.value = null
-                            vm.retryOcrScan()
-                        }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                            Text("Reprendre une photo", color = Muted, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-*/
 
 @Composable
 private fun SummaryScreen(state: DictaUiState, vm: DictaViewModel) {
     val score = state.score ?: 0
-    var revealedScore by remember(score) { mutableStateOf(0) }
+    var revealedScore by remember(score) { mutableIntStateOf(0) }
     var revealComplete by remember(score) { mutableStateOf(false) }
     var rewardFeatured by remember(score) { mutableStateOf(false) }
 

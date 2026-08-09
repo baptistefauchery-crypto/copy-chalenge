@@ -88,7 +88,6 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
         }
     private var autoHideBlockedUntil = 0L
     private var lastCameraReadingAt = 0L
-    private var hasSeenScreenInFragment = false
     private val updateChecker = GitHubReleaseUpdateChecker()
     private val updateDownloader = ApkUpdateDownloader(application.cacheDir)
     private val updateValidator = ApkUpdateValidator(application)
@@ -400,19 +399,9 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
         if (
             current.screen == AppScreen.SESSION &&
             session?.phase == SessionPhase.MEMORIZING &&
-            reading.faceDetected &&
-            reading.state == AttentionState.SCREEN
-        ) {
-            hasSeenScreenInFragment = true
-        }
-        if (
-            current.screen == AppScreen.SESSION &&
-            session?.phase == SessionPhase.MEMORIZING &&
             session.detectionMode == DetectionMode.CAMERA &&
-            hasSeenScreenInFragment &&
             SystemClock.uptimeMillis() >= autoHideBlockedUntil &&
-            reading.faceDetected &&
-            reading.state == AttentionState.NOTEBOOK
+            (!reading.faceDetected || reading.state == AttentionState.NOTEBOOK)
         ) {
             updated = reduceSession(session, SessionEvent.LookedAway)
         }
@@ -460,7 +449,6 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
             text = session.exercise.sourceText,
             elapsedMs = elapsed,
             reviewCount = session.totalReviews,
-            speedReferenceLettersPerSecond = session.exercise.level.referenceLettersPerSecond,
         )
         val previousBest = current.leaderboard.firstOrNull()?.score ?: 0
         val createdAt = System.currentTimeMillis()
@@ -535,7 +523,11 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
             now >= autoHideBlockedUntil &&
             now - lastCameraReadingAt > 1_200L
         ) {
-            state.value = current.copy(attention = AttentionState.UNKNOWN, faceDetected = false)
+            state.value = current.copy(
+                session = reduceSession(session, SessionEvent.LookedAway),
+                attention = AttentionState.UNKNOWN,
+                faceDetected = false,
+            )
         }
     }
 
@@ -543,7 +535,6 @@ class DictaViewModel(application: Application) : AndroidViewModel(application) {
         val now = SystemClock.uptimeMillis()
         autoHideBlockedUntil = now + 2_000L
         lastCameraReadingAt = now
-        hasSeenScreenInFragment = false
     }
 
     private fun createSelectedExercise() = createExercise(

@@ -17,18 +17,19 @@ les dossiers racine et n’est pas remplacée par ce module.
 
 ## Build local
 
-Le projet est autonome et utilise JDK 11, le wrapper Gradle 7.6.4 et Android
-API 33. Depuis ce dossier :
+Le projet est autonome et utilise JDK 17, le wrapper Gradle 8.9 et Android
+API 35. Depuis ce dossier :
 
 ```text
-gradlew.bat testBetaDebugUnitTest
-gradlew.bat assembleBetaDebug
+gradlew.bat testBetaReleaseUnitTest
+gradlew.bat lintBetaRelease
+gradlew.bat assembleBetaRelease
 ```
 
 Le fichier APK est produit dans :
 
 ```text
-app\build\outputs\apk\beta\debug\app-beta-debug.apk
+app\build\outputs\apk\beta\release\app-beta-release.apk
 ```
 
 Le premier lancement du wrapper peut télécharger Gradle et les dépendances
@@ -37,14 +38,14 @@ reste ignoré par Git.
 
 ## Installation de test
 
-[Télécharger la bêta Android publiée](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.7/copy-challenge-beta.apk)
+[Télécharger la bêta Android publiée](https://github.com/baptistefauchery-crypto/copy-chalenge/releases/download/v0.1.0-beta.8/copy-challenge-beta.apk)
 
 L’application utilise le réseau uniquement pour vérifier et télécharger les
 bêtas publiées sur GitHub. L’APK est enregistré dans son cache privé, vérifié
 puis transmis à l’installateur Android.
 
 ```text
-adb install -r app\build\outputs\apk\beta\debug\app-beta-debug.apk
+adb install -r app\build\outputs\apk\beta\release\app-beta-release.apk
 ```
 
 ## Signature durable des bêtas
@@ -59,7 +60,7 @@ L’empreinte publique attendue du certificat est conservée dans
 exécuter depuis la racine du dépôt :
 
 ```powershell
-android\gradlew.bat -p android testBetaDebugUnitTest assembleBetaDebug
+android\gradlew.bat -p android testBetaReleaseUnitTest lintBetaRelease assembleBetaRelease
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File android\scripts\verify-android-signing.ps1
 ```
 

@@ -70,31 +70,31 @@ const noticeButtonStyle: CSSProperties = {
 
 const installNoticeStyle: CSSProperties = {
   ...noticeStyle,
-  flexDirection: "column",
-  alignItems: "stretch",
-  padding: 0,
-  border: 0,
-  background: "transparent",
-  boxShadow: "none",
+  left: "auto",
+  alignItems: "center",
+  maxWidth: "min(22rem, calc(100vw - 2rem))",
+  padding: "0.55rem",
 };
 
 const installButtonStyle: CSSProperties = {
   ...noticeButtonStyle,
-  width: "100%",
-  minHeight: "4.25rem",
-  padding: "0 1.25rem",
-  borderRadius: "1.1rem",
-  fontSize: "1.05rem",
+  minHeight: "2.75rem",
+  padding: "0 0.9rem",
+  fontSize: "0.9rem",
   fontWeight: 800,
-  boxShadow: "0 0.75rem 1.5rem rgba(22, 58, 50, 0.24)",
 };
 
-const installHelpNoticeStyle: CSSProperties = {
-  ...installNoticeStyle,
-  padding: "0.9rem",
-  border: "1px solid rgba(22, 58, 50, 0.18)",
-  background: "#fffdf8",
-  boxShadow: "0 0.75rem 2rem rgba(22, 58, 50, 0.18)",
+const dismissButtonStyle: CSSProperties = {
+  flexShrink: 0,
+  width: "2.75rem",
+  minHeight: "2.75rem",
+  border: 0,
+  borderRadius: "999px",
+  background: "transparent",
+  color: "#163a32",
+  font: "inherit",
+  fontSize: "1.35rem",
+  cursor: "pointer",
 };
 
 function isInstalledApp() {
@@ -115,7 +115,7 @@ export function PwaProvider() {
   const [installEvent, setInstallEvent] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState<boolean | null>(null);
-  const [installHelp, setInstallHelp] = useState(false);
+  const [installDismissed, setInstallDismissed] = useState(false);
   const [updateReady, setUpdateReady] = useState(false);
 
   useEffect(() => {
@@ -172,7 +172,7 @@ export function PwaProvider() {
 
     const unsubscribeInstallPrompt = subscribeToInstallPrompt((event) => {
       setInstallEvent(event);
-      setInstallHelp(false);
+      setInstallDismissed(false);
     });
     window.addEventListener("appinstalled", confirmInstallation);
     return () => {
@@ -185,15 +185,12 @@ export function PwaProvider() {
     };
   }, []);
 
-  const showInstallButton = isInstalled === false;
+  const showInstallButton = isInstalled === false && installEvent !== null && !installDismissed;
 
   if (!showInstallButton && !updateReady) return null;
 
   const requestInstallation = async () => {
-    if (!installEvent) {
-      setInstallHelp(true);
-      return;
-    }
+    if (!installEvent) return;
     await installEvent.prompt();
     const { outcome } = await installEvent.userChoice;
     if (outcome === "accepted") setInstallEvent(null);
@@ -207,7 +204,7 @@ export function PwaProvider() {
         <aside
           aria-label="Installation de l'application"
           style={{
-            ...(installHelp ? installHelpNoticeStyle : installNoticeStyle),
+            ...installNoticeStyle,
             bottom: updateReady ? "6.75rem" : "1rem",
           }}
         >
@@ -219,22 +216,14 @@ export function PwaProvider() {
           >
             Installer bêta copy chalenge sur ce téléphone
           </button>
-          {installHelp && (
-            <span
-              role="status"
-              style={{
-                padding: "0.7rem 0.85rem 0.85rem",
-                color: "#716d7e",
-                fontSize: "0.82rem",
-                lineHeight: 1.4,
-                textAlign: "center",
-              }}
-            >
-              Pour une vraie application sans barre d’adresse, ouvre ce lien dans
-              Google Chrome puis choisis ⋮ → « Installer l’application ».
-              « Ajouter à l’écran d’accueil » crée seulement un raccourci.
-            </span>
-          )}
+          <button
+            type="button"
+            aria-label="Masquer la proposition d’installation"
+            onClick={() => setInstallDismissed(true)}
+            style={dismissButtonStyle}
+          >
+            ×
+          </button>
         </aside>
       )}
       {updateReady && (

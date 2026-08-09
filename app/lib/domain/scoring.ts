@@ -7,14 +7,9 @@ export interface LeaderboardEntry {
 export const LEADERBOARD_STORAGE_KEY = "copy-challenge-leaderboard-v1";
 export const MAX_SCORE = 100;
 const LEADERBOARD_LIMIT = 5;
-export const SCORE_BASE = 100;
-export const MAX_SPEED_ADJUSTMENT = 6;
-export const MAX_LENGTH_BONUS = 5;
-export const MIN_LENGTH_FOR_BONUS = 50;
-export const LENGTH_FOR_MAX_BONUS = 250;
-export const EXPECTED_SPEED_RATIO = 0.75;
+export const SCORE_POINTS_PER_LETTER = 80;
 export const DEFAULT_SPEED_REFERENCE_LETTERS_PER_SECOND = 2;
-const REVIEW_SCORE_MULTIPLIER = 0.8;
+export const REVIEW_SCORE_MULTIPLIER = 0.8;
 
 export interface ScoreCalculationOptions {
   speedReferenceLettersPerSecond: number;
@@ -54,29 +49,23 @@ export function calculateScore(
 }
 
 /**
- * Calculates a deliberately readable score before capping it for display.
- *
- * - 100 points is the neutral target at 75% of the reference speed.
- * - Reviews have the largest normal impact (20% compounding penalty each).
- * - Speed changes at most +/-6 points and is based on letters per second.
- * - Long texts add at most 5 points.
- *
- * A flawless long and fast dictation can reach 112 raw points. `score` is the
- * rounded 0..100 value used by the UI, while `rawScore` remains available for
- * diagnostics and future reward tuning.
+ * Shared score contract: letters copied per second, with a 20% compounding
+ * penalty for each review. The level-specific speed reference is deliberately
+ * not used: the result must mean the same thing on the web and on Android.
  */
 export function calculateScoreBreakdown(
   text: string,
   elapsedMs: number,
   reviewCount = 0,
-  options: ScoreCalculationOptions,
+  _options: ScoreCalculationOptions,
 ): ScoreBreakdown {
+  void _options;
   const letters = countScoringLetters(text);
   if (letters === 0) {
     return {
       score: 0,
       rawScore: 0,
-      baseScore: SCORE_BASE,
+      baseScore: 0,
       speedAdjustment: 0,
       lengthBonus: 0,
       reviewMultiplier: 1,
@@ -85,37 +74,18 @@ export function calculateScoreBreakdown(
 
   const elapsedSeconds = Math.max(Number.isFinite(elapsedMs) ? elapsedMs / 1000 : 1, 1);
   const reviews = Number.isFinite(reviewCount) ? Math.max(0, Math.floor(reviewCount)) : 0;
-  const speedReference = Number.isFinite(options.speedReferenceLettersPerSecond)
-    ? Math.max(options.speedReferenceLettersPerSecond, Number.EPSILON)
-    : DEFAULT_SPEED_REFERENCE_LETTERS_PER_SECOND;
-  const lettersPerSecond = letters / elapsedSeconds;
-  const speedRatio = lettersPerSecond / speedReference;
-  const normalizedSpeed = clampSigned((speedRatio - EXPECTED_SPEED_RATIO) / EXPECTED_SPEED_RATIO);
-  const speedAdjustment = MAX_SPEED_ADJUSTMENT * normalizedSpeed;
-  const lengthProgress = (letters - MIN_LENGTH_FOR_BONUS) / (LENGTH_FOR_MAX_BONUS - MIN_LENGTH_FOR_BONUS);
-  const lengthBonus = MAX_LENGTH_BONUS * clampUnit(lengthProgress);
   const reviewMultiplier = Math.pow(REVIEW_SCORE_MULTIPLIER, reviews);
-  const rawScore = Math.max(
-    0,
-    SCORE_BASE + speedAdjustment + lengthBonus,
-  ) * reviewMultiplier;
+  const baseScore = (letters * SCORE_POINTS_PER_LETTER) / elapsedSeconds;
+  const rawScore = baseScore * reviewMultiplier;
 
   return {
     score: Math.min(MAX_SCORE, Math.max(0, Math.round(rawScore))),
     rawScore,
-    baseScore: SCORE_BASE,
-    speedAdjustment,
-    lengthBonus,
+    baseScore,
+    speedAdjustment: 0,
+    lengthBonus: 0,
     reviewMultiplier,
   };
-}
-
-function clampUnit(value: number): number {
-  return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
-}
-
-function clampSigned(value: number): number {
-  return Number.isFinite(value) ? Math.min(1, Math.max(-1, value)) : -1;
 }
 
 export function getScoreReward(score: number): ScoreReward {

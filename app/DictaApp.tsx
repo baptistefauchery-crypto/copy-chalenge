@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import {
   calculateScore,
@@ -27,6 +28,9 @@ type CalibrationPhase = "preparing" | "measuring" | "ready" | "failed";
 const CALIBRATION_PREPARATION_MS = 2000;
 const CALIBRATION_MEASUREMENT_MS = 1500;
 const AUTO_HIDE_GRACE_MS = 2000;
+const ENTER_NOTEBOOK_MS = 900;
+const RETURN_SCREEN_MS = 1200;
+const CAMERA_WATCHDOG_MS = 1200;
 const SCORE_REVEAL_DURATION_MS = 1800;
 const REWARD_FEATURE_DURATION_MS = 2400;
 const CONFETTI_COLORS = ["#ef765f", "#6654d9", "#58a37c", "#f3b34f"] as const;
@@ -153,6 +157,8 @@ function persistLeaderboard(entries: readonly LeaderboardEntry[]) {
 function LevelPicker({ selectedLevel, onSelect }: { selectedLevel: PrimaryLevel; onSelect: (level: PrimaryLevel) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -170,9 +176,35 @@ function LevelPicker({ selectedLevel, onSelect }: { selectedLevel: PrimaryLevel;
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const selectedIndex = PRIMARY_LEVELS.findIndex((level) => level.id === selectedLevel);
+    optionRefs.current[selectedIndex]?.focus();
+  }, [isOpen, selectedLevel]);
+
+  const handleMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const currentIndex = optionRefs.current.findIndex((option) => option === document.activeElement);
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowDown") nextIndex = (Math.max(currentIndex, -1) + 1) % PRIMARY_LEVELS.length;
+    if (event.key === "ArrowUp") nextIndex = (currentIndex <= 0 ? PRIMARY_LEVELS.length : currentIndex) - 1;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = PRIMARY_LEVELS.length - 1;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setIsOpen(false);
+      triggerRef.current?.focus();
+      return;
+    }
+    if (nextIndex !== null) {
+      event.preventDefault();
+      optionRefs.current[nextIndex]?.focus();
+    }
+  };
+
   return (
     <div ref={menuRef} className="level-picker" data-level={selectedLevel}>
       <button
+        ref={triggerRef}
         id="level-select"
         className="level-trigger"
         type="button"
@@ -187,9 +219,10 @@ function LevelPicker({ selectedLevel, onSelect }: { selectedLevel: PrimaryLevel;
         <span className={`level-chevron ${isOpen ? "is-open" : ""}`} aria-hidden="true">⌄</span>
       </button>
       {isOpen && (
-        <div id="level-menu" className="level-menu" role="listbox" aria-label="Choisir une classe">
-          {PRIMARY_LEVELS.map((level) => (
+        <div id="level-menu" className="level-menu" role="listbox" aria-label="Choisir une classe" onKeyDown={handleMenuKeyDown}>
+          {PRIMARY_LEVELS.map((level, index) => (
             <button
+              ref={(element) => { optionRefs.current[index] = element; }}
               key={level.id}
               className="level-option"
               type="button"
@@ -436,8 +469,8 @@ export function DictaApp() {
     let cancelled = false;
     const detector = new MediaPipeAttentionDetector({
       analysisFps: 10,
-      enterNotebookMs: 220,
-      returnScreenMs: 700,
+      enterNotebookMs: ENTER_NOTEBOOK_MS,
+      returnScreenMs: RETURN_SCREEN_MS,
       wasmPath: "/mediapipe/wasm",
       modelAssetPath: "/models/face_landmarker.task",
     });
@@ -479,7 +512,7 @@ export function DictaApp() {
     const watchdog = window.setInterval(() => {
       // If MediaPipe or the video loop stops answering, fail closed instead of
       // preserving the last optimistic "screen" state forever.
-      if (Date.now() >= autoHideBlockedUntilRef.current && Date.now() - lastCameraReadingAtRef.current > 1200) setPhase("decision");
+      if (Date.now() >= autoHideBlockedUntilRef.current && Date.now() - lastCameraReadingAtRef.current > CAMERA_WATCHDOG_MS) setPhase("decision");
     }, 250);
     return () => window.clearInterval(watchdog);
   }, [cameraMode, phase, screen]);
@@ -548,9 +581,7 @@ export function DictaApp() {
 
   const finishSession = () => {
     const elapsedMs = sessionStartedAtRef.current === null ? 1000 : Date.now() - sessionStartedAtRef.current;
-    const score = calculateScore(text, elapsedMs, totalReviews, {
-      speedReferenceLettersPerSecond: getLevel(selectedLevel).referenceSpeedSignsPerMinute / 60,
-    });
+    const score = calculateScore(text, elapsedMs, totalReviews);
     const entry: LeaderboardEntry = {
       id: `${Date.now()}-${leaderboard.length}`,
       score,
@@ -615,7 +646,7 @@ export function DictaApp() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div className="brand"><img className="brand-mark" src="/icons/icon-192.png" alt="" aria-hidden="true" />bêta copy chalenge</div>
+        <div className="brand"><Image className="brand-mark" src="/icons/icon-192.png" width={192} height={192} unoptimized alt="" aria-hidden="true" />bêta copy chalenge</div>
         <div className="topbar-actions">
           {screen === "setup" && (
             <button
@@ -653,9 +684,13 @@ export function DictaApp() {
       )}
 
       {screen === "setup" && (
-        <img
+        <Image
           className="home-banner"
           src="/dicta-banner-tilted-notebook.png"
+          width={1821}
+          height={864}
+          unoptimized
+          priority
           alt="Un œil, un cahier et un crayon illustrent le challenge de mémoire."
         />
       )}
@@ -811,44 +846,6 @@ export function DictaApp() {
           )}
           <div className="hero"><h1>Bravo, c’est terminé !</h1></div>
           <div className="card stage-card summary-card" data-score-revealed={canRevealScore ? "true" : "false"}>
-            {/*
-              <div className="score-gate" aria-live="polite">
-                <div className="eyebrow">Dernière vérification</div>
-                <h2>Vérifie l&apos;orthographe de ta copie</h2>
-                <p className="score-gate-help">Photographie ta feuille pour comparer ton écriture au texte de référence avant d&apos;afficher ton score.</p>
-                {spellingVerification && (
-                  <div className="spelling-result">
-                    <div className="spelling-result-status" data-ok={spellingVerification.comparison.matches && spellingVerification.spelling.issues.length === 0 ? "true" : "false"}>
-                      <strong>{spellingVerification.comparison.matches ? "Le texte correspond à la référence." : "Des différences ont été repérées."}</strong>
-                      <span>
-                        {spellingVerification.spelling.issues.length === 0
-                          ? "Aucune faute détectée par le dictionnaire français."
-                          : spellingVerification.spelling.issues.length + " mot" + (spellingVerification.spelling.issues.length > 1 ? "s" : "") + " à vérifier."}
-                      </span>
-                      <span>Confiance OCR : {Math.round(spellingVerification.comparison.confidence * 100)} %</span>
-                    </div>
-                    <p className="spelling-result-text"><strong>Texte reconnu :</strong> {spellingVerification.ocr.text}</p>
-                    {spellingVerification.comparison.wordDiffs.some((diff) => diff.kind !== "equal") && (
-                      <ul className="spelling-diff-list">
-                        {spellingVerification.comparison.wordDiffs.filter((diff) => diff.kind !== "equal").slice(0, 4).map((diff, index) => (
-                          <li key={diff.kind + "-" + index}>
-                            <span>{diff.reference || "mot absent"}</span>
-                            <strong aria-hidden="true">→</strong>
-                            <span>{diff.recognized || "mot manquant"}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-                <button className="secondary-button spelling-gate-button" type="button" onClick={openSpellingCheck}>
-                  {spellingVerification ? "Refaire la vérification" : "Vérifier l’orthographe"}
-                </button>
-                {spellingVerification && (
-                  <button className="primary-button" type="button" onClick={revealScore}>Révéler le score</button>
-                )}
-              </div>
-            */}
             <div className="score-reveal" aria-label={`Score ${revealedScore} sur ${MAX_SCORE}`}>
               <div className={`summary-score ${isNewBestScore ? "summary-score-record" : ""}`} aria-live="polite">{revealedScore}</div>
               <div className="muted">{isNewBestScore ? "Nouveau record !" : "score sur 100"}</div>

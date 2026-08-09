@@ -14,7 +14,8 @@ class AndroidIdentityStructureTest {
         val manifest = mainSource.resolve("AndroidManifest.xml").readText()
 
         assertTrue(manifest.contains("android:label=\"Copy Challenge\""))
-        assertTrue(manifest.contains("android:icon=\"@drawable/dicta_logo\""))
+        assertTrue(manifest.contains("android:icon=\"@mipmap/ic_launcher\""))
+        assertTrue(mainSource.resolve("res/mipmap-anydpi-v26/ic_launcher.xml").isFile)
         assertTrue(manifest.contains("android:screenOrientation=\"portrait\""))
         assertTrue(manifest.contains("android.permission.CAMERA"))
         assertTrue(manifest.contains("android.permission.INTERNET\" />"))

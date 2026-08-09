@@ -22,11 +22,8 @@ class InAppUpdateStructureTest {
             "APK installation permission is required",
             manifest.contains("android.permission.REQUEST_INSTALL_PACKAGES"),
         )
-        assertTrue(
-            "Android 12+ unattended-update request permission is required",
-            manifest.contains("android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION"),
-        )
         listOf(
+            "android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION",
             "android.permission.REQUEST_DELETE_PACKAGES",
             "android.permission.DELETE_PACKAGES",
         ).forEach { forbidden ->
